@@ -22,6 +22,7 @@ import {
 import { getCharityById } from '../../constants/charities';
 import { getClubLightningAddress } from '../../utils/rewardTags';
 import { callEdgeFunction } from '../../utils/edgeFunctions';
+import { FEATURES } from '../../config/features';
 
 // Local storage key for tracking joined competitions (optimistic join)
 const LOCAL_JOINED_COMPETITIONS_KEY = '@runstr:local_joined_competitions';
@@ -301,6 +302,10 @@ export class SupabaseCompetitionService {
   static async submitWorkoutSimple(
     data: WorkoutSubmissionData
   ): Promise<{ success: boolean; error?: string; flagged?: boolean }> {
+    if (!FEATURES.supabaseSubmission) {
+      return { success: false, error: 'Supabase submission disabled' };
+    }
+
     if (!isSupabaseConfigured()) {
       console.warn('[SupabaseCompetitionService] Supabase not configured, skipping submission');
       return { success: false, error: 'Backend not configured' };

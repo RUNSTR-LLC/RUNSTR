@@ -36,6 +36,7 @@ import Toast from 'react-native-toast-message';
 import { nip19 } from '@nostr-dev-kit/ndk';
 import Constants from 'expo-constants';
 import { SupabaseCompetitionService } from '../backend/SupabaseCompetitionService';
+import { FEATURES } from '../../config/features';
 import { isValidWorkoutMetrics } from '../../utils/rewardEligibility';
 // RewardDestinationService removed - reward routing now uses isPPQTeam() inline
 import { EinundzwanzigService } from '../challenge/EinundzwanzigService';
@@ -278,6 +279,8 @@ export class WorkoutPublishingService {
         console.warn('[WorkoutPublishing] ⚠️ Skipping Supabase submission: no distance or duration');
         console.warn('[WorkoutPublishing]    This workout will not appear on leaderboards');
         // Continue - wellness activities (meditation, etc.) don't need leaderboard entry
+      } else if (!FEATURES.supabaseSubmission) {
+        // Phase 2: no Supabase. The 1301 note is the only upload.
       } else {
         // PPQ.AI bolt11 creation is now handled inside submitWorkoutSimple()
         // This ensures ALL submission paths (HealthKit, background, manual) get PPQ support

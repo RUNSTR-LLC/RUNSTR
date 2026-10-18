@@ -243,6 +243,7 @@ import {
 } from './utils/eventDeepLink';
 import { PendingSubmissionService } from './services/competition/PendingSubmissionService';
 import { RewardPollingService } from './services/rewards/RewardPollingService';
+import { FEATURES } from './config/features';
 
 // Music player components for Wavlake integration
 // Note: MiniMusicPlayer removed - replaced by ProfileMusicBar in ProfileScreen
@@ -609,7 +610,9 @@ const AppContent: React.FC<AppContentProps> = ({ onPermissionComplete }) => {
 
         // Task 1: Retry pending workout submissions
         try {
-          const retryResult = await PendingSubmissionService.retryAll();
+          const retryResult = FEATURES.supabaseSubmission
+            ? await PendingSubmissionService.retryAll()
+            : { succeeded: 0 };
           if (retryResult.succeeded > 0) {
             console.log(`[App] ✅ Synced ${retryResult.succeeded} pending workout(s)`);
             Toast.show({

@@ -62,6 +62,10 @@ export const FEATURES = {
   journalHabits: false,
   /** Non-running workouts in history. Collection is unaffected — display only. */
   nonRunningHistory: false,
+
+  // --- Phase 2 (2026-10-18): fully Nostr, no Supabase ---
+  /** Send workouts to Supabase (leaderboards, rewards). When false, the 1301 note is the only upload. */
+  supabaseSubmission: false,
 } as const;
 
 // Type for feature keys

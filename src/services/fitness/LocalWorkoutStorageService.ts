@@ -10,6 +10,7 @@ import type { Split } from '../activity/SplitTrackingService';
 import { DailyRewardService, type RewardResult } from '../rewards/DailyRewardService';
 import { RewardDestinationService } from '../rewards/RewardDestinationService';
 import { SupabaseCompetitionService } from '../backend/SupabaseCompetitionService';
+import { FEATURES } from '../../config/features';
 import { buildRewardTags } from '../../utils/rewardTags';
 import { isValidWorkoutMetrics } from '../../utils/rewardEligibility';
 import Toast from 'react-native-toast-message';
@@ -728,6 +729,9 @@ export class LocalWorkoutStorageService {
    * Fire-and-forget — errors are logged, never block the save path.
    */
   private async autoSubmitToSupabase(workout: LocalWorkout): Promise<void> {
+    if (!FEATURES.supabaseSubmission) {
+      return;
+    }
     // Historical imports should NOT enter competitions — they would pollute
     // the daily leaderboard because workout_submissions.created_at = NOW()
     if (workout.source === 'imported_nostr') {
