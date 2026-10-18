@@ -1,14 +1,13 @@
 /**
  * BottomTabNavigator - Main tab navigation for authenticated users
- * Phase 1 (2026-09-18): Social and Leaderboard tabs are hidden behind feature
- * flags (FEATURES.social, FEATURES.leaderboard) and the bar itself is hidden
- * via tabBarStyle when both are off, leaving a single Home tab (ProfileScreen)
- * as the app's one visible surface. The tab navigator is kept even with one
+ * Phase 2 (2026-10-18): the Social and Leaderboard tabs are deleted; the bar
+ * is hidden via tabBarStyle, leaving a single Home tab (ProfileScreen) as the
+ * app's one visible surface. The tab navigator is kept even with one
  * tab — see the design doc's Tier 2 note on why MainTabs isn't replaced with
  * a bare screen.
  */
 
-import React, { Suspense } from 'react';
+import React from 'react';
 import {
   Text,
   View,
@@ -28,33 +27,6 @@ import { PerformanceLogger } from '../utils/PerformanceLogger';
 // ✅ PERFORMANCE: Load Profile immediately, lazy load others when needed
 // FIX: Loading multiple lazy screens simultaneously was causing freeze on first launch
 import { ProfileScreen } from '../screens/ProfileScreen';
-
-// Lazy load Social since it's not the initial tab
-const SocialScreen = React.lazy(() =>
-  import('../screens/SocialScreen').then((m) => ({
-    default: m.SocialScreen,
-  }))
-);
-
-const LeaderboardsScreen = React.lazy(() =>
-  import('../screens/LeaderboardsScreen').then((m) => ({
-    default: m.LeaderboardsScreen,
-  }))
-);
-
-// Loading fallback component
-const LoadingFallback = () => (
-  <View
-    style={{
-      flex: 1,
-      justifyContent: 'center',
-      alignItems: 'center',
-      backgroundColor: theme.colors.background,
-    }}
-  >
-    <ActivityIndicator size="large" color={theme.colors.accent} />
-  </View>
-);
 
 // Data Hooks
 import { useNavigationData } from '../contexts/NavigationDataContext';
@@ -114,9 +86,7 @@ export const BottomTabNavigator: React.FC<BottomTabNavigatorProps> = ({
       }}
       screenOptions={({ route }) => ({
         headerShown: false,
-        tabBarStyle: FEATURES.social || FEATURES.leaderboard
-          ? styles.tabBar
-          : { display: 'none' as const },
+        tabBarStyle: { display: 'none' as const },
         tabBarActiveTintColor: theme.colors.text,
         tabBarInactiveTintColor: theme.colors.textMuted,
         tabBarShowLabel: false,
@@ -197,34 +167,6 @@ export const BottomTabNavigator: React.FC<BottomTabNavigatorProps> = ({
         }
       </Tab.Screen>
 
-      {/* Social Tab - Feed & Fitness Clubs */}
-      {FEATURES.social && (
-        <Tab.Screen name="Social" options={{ title: t('profile:tabSocial'), lazy: true }}>
-          {() => (
-            <Suspense fallback={<LoadingFallback />}>
-              <SocialScreen />
-            </Suspense>
-          )}
-        </Tab.Screen>
-      )}
-
-      {/* Leaderboard Tab - Always-on daily competitions */}
-      {FEATURES.leaderboard && (
-        <Tab.Screen
-          name="Leaderboard"
-          options={{
-            title: t('profile:tabLeaderboard', 'Leaderboard'),
-            headerShown: false,
-            lazy: true,
-          }}
-        >
-          {() => (
-            <Suspense fallback={<LoadingFallback />}>
-              <LeaderboardsScreen />
-            </Suspense>
-          )}
-        </Tab.Screen>
-      )}
     </Tab.Navigator>
   );
 };
