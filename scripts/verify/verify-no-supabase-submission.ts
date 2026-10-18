@@ -1,5 +1,6 @@
 /**
- * Verify Phase 2 step 1: workouts are no longer sent to Supabase.
+ * Verify Phase 2 steps 1-2: workouts are no longer sent to Supabase, and
+ * personal records are computed from local storage.
  * Static check — the services import React Native and can't run under tsx.
  * Run: npx tsx scripts/verify/verify-no-supabase-submission.ts
  */
@@ -32,6 +33,13 @@ const gatedCount = readFileSync('src/components/profile/tabs/UnifiedWorkoutsTab.
 const allGated = tabCount === gatedCount;
 console.log(`${allGated ? 'PASS' : 'FAIL'}  every Compete condition gated (${gatedCount}/${tabCount})`);
 if (!allGated) failed++;
+
+// Step 2: personal records come from local storage, not Supabase
+const statsCard = readFileSync('src/components/profile/StatsCard.tsx', 'utf8');
+const prsLocal =
+  !/utils\/supabase|nostr-tools/.test(statsCard) && statsCard.includes('localWorkoutStorage.getAllWorkouts()');
+console.log(`${prsLocal ? 'PASS' : 'FAIL'}  StatsCard PRs computed from local workouts`);
+if (!prsLocal) failed++;
 
 console.log(failed ? `\n${failed} check(s) failed` : '\nAll checks passed');
 process.exit(failed ? 1 : 0);

@@ -4,8 +4,8 @@ import { theme } from '../../styles/theme';
 import { Card } from '../ui/Card';
 import { AnimatedNumber } from '../ui/AnimatedNumber';
 import { DailyStepCounterService } from '../../services/activity/DailyStepCounterService';
-import { supabase, isSupabaseConfigured } from '../../utils/supabase';
-import { nip19 } from 'nostr-tools';
+import localWorkoutStorage, { type LocalWorkout } from '../../services/fitness/LocalWorkoutStorageService';
+import { isRunningWorkout } from '../../utils/isRunningWorkout';
 import { FEATURES } from '../../config/features';
 
 interface StatsCardProps {
@@ -97,74 +97,38 @@ export const StatsCard: React.FC<StatsCardProps> = ({ userPubkey, refreshKey = 0
       }
     }
 
-    if (!isSupabaseConfigured() || !supabase || !userPubkey) return;
     try {
-      const npub = userPubkey.startsWith('npub')
-        ? userPubkey
-        : nip19.npubEncode(userPubkey);
+      const workouts = await localWorkoutStorage.getAllWorkouts();
+      const runs = workouts.filter(isRunningWorkout);
+      const rides = workouts.filter((w) => w.type === 'cycling');
 
-      const fastestTimeAtDistance = async (
-        activityType: string,
-        minMeters: number
-      ): Promise<number> => {
-        const { data } = await supabase!
-          .from('workouts')
-          .select('duration_seconds')
-          .eq('npub', npub)
-          .eq('activity_type', activityType)
-          .gte('distance_meters', minMeters)
-          .order('duration_seconds', { ascending: true })
-          .limit(1);
-        return data?.[0]?.duration_seconds || 0;
-      };
+      const fastestTimeAtDistance = (list: LocalWorkout[], minMeters: number): number =>
+        list.reduce((best, w) => {
+          if ((w.distance || 0) < minMeters || !(w.duration > 0)) return best;
+          return best === 0 || w.duration < best ? w.duration : best;
+        }, 0);
 
-      const maxDistance = async (activityType: string): Promise<number> => {
-        const { data } = await supabase!
-          .from('workouts')
-          .select('distance_meters')
-          .eq('npub', npub)
-          .eq('activity_type', activityType)
-          .order('distance_meters', { ascending: false })
-          .limit(1);
-        return data?.[0]?.distance_meters || 0;
-      };
+      const maxDistance = (list: LocalWorkout[]): number =>
+        list.reduce((max, w) => Math.max(max, w.distance || 0), 0);
 
-      const maxReps = async (activityType: string): Promise<number> => {
-        const { data } = await supabase!
-          .from('workouts')
-          .select('rep_count')
-          .eq('npub', npub)
-          .eq('activity_type', activityType)
-          .order('rep_count', { ascending: false })
-          .limit(1);
-        return data?.[0]?.rep_count || 0;
-      };
+      const maxReps = (exercise: 'pushups' | 'pullups'): number =>
+        workouts.reduce(
+          (max, w) =>
+            w.exerciseType === exercise ? Math.max(max, w.reps || 0) : max,
+          0
+        );
 
-      const [
-        run5k,
-        run10k,
-        runHalf,
-        runMarathon,
-        cyc20k,
-        cyc40k,
-        cyc100k,
-        longestRunMeters,
-        longestRideMeters,
-        pushupMax,
-        pullupMax,
-      ] = await Promise.all([
-        fastestTimeAtDistance('running', M_5K),
-        fastestTimeAtDistance('running', M_10K),
-        fastestTimeAtDistance('running', M_HALF),
-        fastestTimeAtDistance('running', M_MARATHON),
-        fastestTimeAtDistance('cycling', M_CYC_20K),
-        fastestTimeAtDistance('cycling', M_CYC_40K),
-        fastestTimeAtDistance('cycling', M_CYC_100K),
-        maxDistance('running'),
-        maxDistance('cycling'),
-        maxReps('pushups'),
-        maxReps('pullups'),
-      ]);
+      const run5k = fastestTimeAtDistance(runs, M_5K);
+      const run10k = fastestTimeAtDistance(runs, M_10K);
+      const runHalf = fastestTimeAtDistance(runs, M_HALF);
+      const runMarathon = fastestTimeAtDistance(runs, M_MARATHON);
+      const cyc20k = fastestTimeAtDistance(rides, M_CYC_20K);
+      const cyc40k = fastestTimeAtDistance(rides, M_CYC_40K);
+      const cyc100k = fastestTimeAtDistance(rides, M_CYC_100K);
+      const longestRunMeters = maxDistance(runs);
+      const longestRideMeters = maxDistance(rides);
+      const pushupMax = maxReps('pushups');
+      const pullupMax = maxReps('pullups');
 
       if (isCancelled()) return;
       setRecords({
