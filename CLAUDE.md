@@ -18,7 +18,7 @@ RUNSTR used to be a three-pillar cardio/social/rewards app. **Phase 1** (2026-09
 
 - **No Supabase.** `src/` has no Supabase client (`utils/supabase.ts`, `edgeFunctions.ts`, and every backend/reward/competition/social/club/season service are deleted). New code must not add one. `@supabase/supabase-js` stays in `package.json` only for dev scripts under `scripts/`; `supabase/functions/` and migrations are untouched because the external zapper may still use that database — ask before deleting them.
 - **No in-app rewards.** Rewards are paid by the external zapper running against public 1301 notes on Nostr feeds; the app never triggers, estimates, polls, or displays rewards. 1301s carry no lightning/reward/WoT/charity/team tags.
-- **Kind 1301 is the only workout post.** `workoutPublishingService.postWorkout()` always publishes a 1301 (allowlisted tags only, `publishWorkout1301()`); the kind 1 card post is deleted and the Settings "Post format" picker is hidden (`SHOW_FORMAT_TOGGLE = false`).
+- **Kind 1301 is the only workout post.** `workoutPublishingService.postWorkout()` always publishes a 1301 (allowlisted tags only, `publishWorkout1301()`); the kind 1 card post and the share-card modal are deleted, and the Settings "Post format" picker is hidden (`SHOW_FORMAT_TOGGLE = false`). Every publish goes through `publishRun()` (`src/services/nostr/publishRun.ts`), which records the run as published (`WorkoutStatusTracker` + `LocalWorkout.syncedToNostr`). The post-run summary shows the publish status (published / retry / saved on this device), and History marks each run "On Nostr" or offers "Publish to Nostr".
 - **Running only.** `ProfileScreen.renderTracker()` always renders `RunningTrackerScreen`; the walking/cycling/hiking trackers are deleted. History filters through `isRunningWorkout()` in `src/utils/isRunningWorkout.ts`. Apple Health / Health Connect still import other activity types on foreground sync — only display is filtered.
 - **No background sync.** The HealthKit background-delivery and Android WorkManager tasks only submitted to Supabase and are deleted; `AuthContext` unregisters the stale Android task (`runstr-background-sync`) on existing installs. Health data imports when the app is foregrounded.
 - **One surface.** `BottomTabNavigator` has a single Home tab (bar hidden). `AppNavigator` is a Login-only stack — `App.tsx` swaps to `AuthenticatedNavigator` once a user exists. `ProfileScreen` is owner-only (nothing navigates to another user's profile).
@@ -71,7 +71,7 @@ Nostr is the substrate the product is named after — visible and named in the U
 | Social posts | 1 | None — workout posts are 1301 only (kind 1 posting deleted in Phase 2) |
 | Profile updates | 0 | When user edits profile |
 | Encrypted backups | 30078 | Auto-backup after workouts (3-min debounce), NIP-44 self-encrypted, chunked (`runstr-workout-backup` + `:w0…wN`). Auto-restored once per install on login (nsec users) |
-| **Workouts** | **1301** | **Auto-published to relays by default (the card-share sheet is hidden) for cross-app interop (Amethyst/POWR/Chachi). The only workout upload. Only allowlisted workout-data tags are published (`publishWorkout1301()`). On login, `Nostr1301ImportService.backfillInBackground()` merges the user's relay history back into local AsyncStorage, which remains the source of truth for what history displays.** |
+| **Workouts** | **1301** | **Auto-published to relays by default for cross-app interop (Amethyst/POWR/Chachi). The only workout upload. Only allowlisted workout-data tags are published (`publishWorkout1301()`). On login, `Nostr1301ImportService.backfillInBackground()` merges the user's relay history back into local AsyncStorage, which remains the source of truth for what history displays.** |
 
 ## Critical Rules
 
@@ -117,7 +117,7 @@ The one loop: log in → track a run → it becomes a kind 1301 note on relays.
 
 1. **Auth (anonymous-first):** Tap "Start" — no login required. Optional "Advanced" login with nsec or Amber. NIP-46 bunker login does not exist yet — see Deferred above.
 2. **Track:** The tracker opens directly on running. GPS tracks the run; Apple Health / Health Connect import other workouts on foreground sync, unshown.
-3. **Publish:** Finishing a run auto-publishes it as a kind 1301 note to relays (the card-share sheet is hidden; 1301 is the only format). The encrypted 30078 backup updates 3 minutes later.
+3. **Publish:** Finishing a run auto-publishes it as a kind 1301 note to relays; the summary shows whether it published, with Retry on failure (1301 is the only format). Runs not yet on Nostr can be published from History. The encrypted 30078 backup updates 3 minutes later.
 4. **History:** Local AsyncStorage renders immediately. On login, the encrypted backup restores once per install (nsec users), then `Nostr1301ImportService` backfills relay history (throttled to once per 6 hours) — see "Phase 2" and "Known limitations" above for the dedup, relay-coverage, and Amber caveats.
 5. **Rewards:** Not in the app. The external zapper rewards users from their public 1301 notes on Nostr feeds.
 

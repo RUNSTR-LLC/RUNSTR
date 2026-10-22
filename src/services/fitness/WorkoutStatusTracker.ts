@@ -161,6 +161,17 @@ export class WorkoutStatusTracker {
   }
 
   /**
+   * IDs of workouts already published to Nostr, from the cache loaded at startup
+   */
+  getPostedWorkoutIds(): Set<string> {
+    const ids = new Set<string>();
+    this.statusCache.forEach((status, id) => {
+      if (status.postedToNostr) ids.add(id);
+    });
+    return ids;
+  }
+
+  /**
    * Get all tracked workout IDs
    */
   getTrackedWorkoutIds(): string[] {

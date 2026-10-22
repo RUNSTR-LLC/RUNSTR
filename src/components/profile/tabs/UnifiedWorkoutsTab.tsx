@@ -1,8 +1,8 @@
 /**
- * UnifiedWorkoutsTab - Health Timeline
- * Unified view of workouts, journal entries, and habit check-ins
- * Merges local workouts with Apple Health (iOS) / Health Connect (Android)
- * plus journal entries and habit check-ins into a chronological timeline
+ * UnifiedWorkoutsTab - Run history list
+ * Merges local runs with Apple Health (iOS) / Health Connect (Android) imports,
+ * shows running only, grouped by month (newest first) under the personal
+ * records card. Each run shows whether it is on Nostr, or can be published.
  */
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
@@ -20,25 +20,18 @@ import { OstrichRefreshFlatList } from '../../ui/OstrichRefreshScrollView';
 import { theme } from '../../../styles/theme';
 import { CustomAlert } from '../../ui/CustomAlert';
 import { EnhancedWorkoutCard } from '../shared/EnhancedWorkoutCard';
-import { TimelineEntryCard } from '../shared/TimelineEntryCard';
-import { JournalEditorModal } from '../../journal/JournalEditorModal';
 import { MonthlyWorkoutGroup } from '../shared/MonthlyWorkoutGroup';
 import type { MonthlyGroup } from '../shared/MonthlyWorkoutGroup';
 import localWorkoutStorage from '../../../services/fitness/LocalWorkoutStorageService';
-import healthKitService from '../../../services/fitness/healthKitService';
-import healthConnectService from '../../../services/fitness/healthConnectService';
-import { JournalService } from '../../../services/journal/JournalService';
-import { getAllHabits } from '../../../services/habits/HabitTrackerService';
+import { useHealthAppWorkouts } from './useHealthAppWorkouts';
 import { mergeWorkoutsWithDeduplication } from '../../../utils/unifiedWorkoutMerge';
 import type { LocalWorkout } from '../../../services/fitness/LocalWorkoutStorageService';
 import type { Workout } from '../../../types/workout';
-import type { JournalEntry } from '../../../types/journal';
-import type { TimelineItem, TimelineFilter } from '../../../types/timeline';
-import type { Habit } from '../../../services/habits/HabitTrackerService';
 import { Ionicons } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';
-import { WoTService } from '../../../services/wot/WoTService';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import WorkoutStatusTracker from '../../../services/fitness/WorkoutStatusTracker';
+import { publishRun } from '../../../services/nostr/publishRun';
+import type { PublishableWorkout } from '../../../services/nostr/workoutPublishingService';
 import { StatsCard } from '../StatsCard';
 import { WorkoutActionSheet, type WorkoutAction } from '../shared/WorkoutActionSheet';
 import { PressableScale } from '../../ui/PressableScale';
@@ -49,47 +42,36 @@ interface UnifiedWorkoutsTabProps {
   userId: string;
   pubkey?: string;
   onRefresh?: () => void;
-  onPostToSocial?: (workout: LocalWorkout) => Promise<void>;
-  onSocialShareHealthApp?: (workout: Workout) => Promise<void>;
 }
-
-const FILTER_OPTIONS: { key: TimelineFilter; label: string }[] = [
-  { key: 'all', label: 'All' },
-  { key: 'workouts', label: 'Workouts' },
-];
 
 export const UnifiedWorkoutsTab: React.FC<UnifiedWorkoutsTabProps> = ({
   userId,
   pubkey,
   onRefresh,
-  onPostToSocial,
-  onSocialShareHealthApp,
 }) => {
   // Workout state
   const [localWorkouts, setLocalWorkouts] = useState<LocalWorkout[]>([]);
   const [mergedWorkouts, setMergedWorkouts] = useState<Workout[]>([]);
   const [localWorkoutIds, setLocalWorkoutIds] = useState<Set<string>>(new Set());
-  const [healthWorkouts, setHealthWorkouts] = useState<Workout[]>([]);
-  const [healthPermission, setHealthPermission] = useState(false);
-  const [healthAvailable, setHealthAvailable] = useState(false);
-  const [isHealthSyncing, setIsHealthSyncing] = useState(false);
+  // Apple Health / Health Connect workouts, merged into the list below
+  const {
+    healthWorkouts,
+    healthAvailable,
+    healthPermission,
+    isHealthSyncing,
+    loadHealthWorkouts,
+    handleConnectHealth,
+  } = useHealthAppWorkouts(userId);
   const [permissionDismissed, setPermissionDismissed] = useState(false);
-
-  // Timeline data
-  const [journalEntries, setJournalEntries] = useState<JournalEntry[]>([]);
-  const [habits, setHabits] = useState<Habit[]>([]);
-  const [activeFilter, setActiveFilter] = useState<TimelineFilter>('all');
-
-  // Journal editor modal
-  const [journalModalVisible, setJournalModalVisible] = useState(false);
-  const [editingJournalEntry, setEditingJournalEntry] = useState<JournalEntry | null>(null);
 
   // UI state
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [statsRefreshKey, setStatsRefreshKey] = useState(0);
   const [postingWorkoutId, setPostingWorkoutId] = useState<string | null>(null);
-  const [postingType, setPostingType] = useState<'social' | 'nostr' | null>(null);
-  const [isWoTEligible, setIsWoTEligible] = useState(false);
+  // Workouts published from this device (the summary or History)
+  const [postedIds, setPostedIds] = useState<Set<string>>(
+    () => WorkoutStatusTracker.getPostedWorkoutIds()
+  );
   const [actionSheetWorkout, setActionSheetWorkout] = useState<Workout | null>(null);
   const [alertVisible, setAlertVisible] = useState(false);
   const [alertConfig, setAlertConfig] = useState<{
@@ -106,10 +88,6 @@ export const UnifiedWorkoutsTab: React.FC<UnifiedWorkoutsTabProps> = ({
   // Load all data on mount
   useEffect(() => {
     loadLocalWorkouts();
-    checkHealthPermission();
-    loadWoTEligibility();
-    loadJournalEntries();
-    loadHabits();
   }, []);
 
   // Merge workouts whenever local or health workouts change
@@ -134,113 +112,8 @@ export const UnifiedWorkoutsTab: React.FC<UnifiedWorkoutsTabProps> = ({
     }
   };
 
-
-  const loadJournalEntries = async () => {
-    try {
-      const entries = await JournalService.getAllEntries();
-      setJournalEntries(entries);
-    } catch (error) {
-      console.error('[UnifiedWorkouts] Failed to load journal entries:', error);
-    }
-  };
-
-  const loadHabits = async () => {
-    try {
-      const allHabits = await getAllHabits();
-      setHabits(allHabits);
-    } catch (error) {
-      console.error('[UnifiedWorkouts] Failed to load habits:', error);
-    }
-  };
-
-  const loadWoTEligibility = async () => {
-    try {
-      const pubkey = await AsyncStorage.getItem('@runstr:hex_pubkey');
-      if (!pubkey) return;
-      const wotService = WoTService.getInstance();
-      const score = await wotService.getCachedScore(pubkey);
-      setIsWoTEligible(score !== null && score > 0);
-    } catch (error) {
-      console.warn('[UnifiedWorkouts] WoT eligibility check failed:', error);
-    }
-  };
-
-  const checkHealthPermission = async () => {
-    try {
-      if (Platform.OS === 'ios') {
-        const status = healthKitService.getStatus();
-        setHealthAvailable(status.available);
-        if (status.authorized) {
-          setHealthPermission(true);
-          loadHealthWorkouts(false);
-        }
-      } else if (Platform.OS === 'android') {
-        const status = healthConnectService.getStatus();
-        setHealthAvailable(status.available);
-        if (status.authorized) {
-          setHealthPermission(true);
-          loadHealthWorkouts(false);
-        }
-      }
-    } catch (error) {
-      console.error('[UnifiedWorkouts] Error checking health permission:', error);
-    }
-  };
-
-  const loadHealthWorkouts = async (showLoading: boolean = false) => {
-    if (showLoading) setIsHealthSyncing(true);
-    try {
-      let workouts: Workout[] = [];
-      if (Platform.OS === 'ios') {
-        const cached = await healthKitService.getCachedWorkouts();
-        if (cached && cached.length > 0) {
-          workouts = transformHealthKitWorkouts(cached);
-          setHealthWorkouts(workouts);
-        }
-        const fresh = await healthKitService.getRecentWorkouts(userId, 30);
-        if (fresh) { workouts = fresh; setHealthWorkouts(workouts); }
-      } else if (Platform.OS === 'android') {
-        const cached = await healthConnectService.getCachedWorkouts();
-        if (cached && cached.length > 0) {
-          workouts = transformHealthConnectWorkouts(cached);
-          setHealthWorkouts(workouts);
-        }
-        const fresh = await healthConnectService.getRecentWorkouts(userId, 30);
-        if (fresh) { workouts = fresh; setHealthWorkouts(workouts); }
-      }
-    } catch (error) {
-      console.error('[UnifiedWorkouts] Failed to load health workouts:', error);
-    } finally {
-      setIsHealthSyncing(false);
-    }
-  };
-
-  // HealthKit returns startDate/endDate as Date objects; coerce to ISO strings
-  // so every Workout in the timeline carries a consistent string timestamp.
-  const toIso = (d: any): string =>
-    typeof d === 'string' ? d : d ? new Date(d).toISOString() : '';
-
-  const transformHealthKitWorkouts = (cached: any[]): Workout[] =>
-    cached.map((w) => ({
-      id: w.UUID || w.id || `hk_${Date.now()}`,
-      userId, type: (w.activityType || 'running') as Workout['type'],
-      source: 'healthkit' as const, duration: w.duration,
-      distance: w.totalDistance || 0, calories: w.totalEnergyBurned || 0,
-      startTime: toIso(w.startDate), endTime: toIso(w.endDate), syncedAt: new Date().toISOString(),
-      metadata: { sourceApp: w.sourceName, healthKitId: w.UUID },
-    }));
-
-  const transformHealthConnectWorkouts = (cached: any[]): Workout[] =>
-    cached.map((w) => ({
-      id: w.id, userId, type: (w.activityType || 'running') as Workout['type'],
-      source: 'health_connect' as const, duration: w.duration,
-      distance: w.totalDistance || 0, calories: w.totalEnergyBurned || 0,
-      startTime: w.startTime, endTime: w.endTime, syncedAt: new Date().toISOString(),
-      steps: w.steps, metadata: { sourceApp: w.sourceName, healthConnectId: w.id },
-    }));
-
   // ============================================================================
-  // Timeline Building
+  // Monthly Grouping
   // ============================================================================
 
   // Running-only display filter. Storage and sync are unaffected — this is the
@@ -254,148 +127,53 @@ export const UnifiedWorkoutsTab: React.FC<UnifiedWorkoutsTabProps> = ({
   );
 
   const monthlyGroups = useMemo((): MonthlyGroup[] => {
-    // Build timeline items from all sources
-    const items: TimelineItem[] = [];
-
-    // Add workouts (always, unless filtered to journal/habits only)
-    if (activeFilter === 'all' || activeFilter === 'workouts') {
-      visibleWorkouts.forEach((w) => {
-        if (!w.startTime) return; // Skip corrupted entries without a timestamp
-        // HealthKit workouts carry startTime as a Date object; local workouts as
-        // an ISO string. Normalize so `.split('T')` can never throw (this was
-        // crashing the History tab whenever Apple Health Workouts sync was on).
-        const startIso =
-          typeof w.startTime === 'string'
-            ? w.startTime
-            : new Date(w.startTime as any).toISOString();
-        items.push({
-          type: 'workout', id: `w_${w.id}`,
-          date: startIso.split('T')[0],
-          timestamp: new Date(startIso).getTime(),
-          workout: w,
-        });
-      });
-    }
-
-    // Add journal entries
-    if (FEATURES.journalHabits && (activeFilter === 'all' || activeFilter === 'journal')) {
-      journalEntries.forEach((e) => {
-        items.push({
-          type: 'journal', id: `j_${e.id}`,
-          date: e.date,
-          timestamp: new Date(e.createdAt).getTime(),
-          journalEntry: e,
-        });
-      });
-    }
-
-    // Add habit check-ins (expand each habit's check-in dates)
-    if (FEATURES.journalHabits && (activeFilter === 'all' || activeFilter === 'habits')) {
-      habits.forEach((habit) => {
-        habit.checkIns.forEach((checkInDate) => {
-          items.push({
-            type: 'habit_checkin', id: `h_${habit.id}_${checkInDate}`,
-            date: checkInDate,
-            timestamp: new Date(checkInDate + 'T12:00:00').getTime(),
-            habitCheckIn: { habit, date: checkInDate },
-          });
-        });
-      });
-    }
-
-    // Group by month
-    const groups = new Map<string, TimelineItem[]>();
-    items.forEach((item) => {
-      const d = new Date(item.date);
+    const groups = new Map<string, { workout: Workout; timestamp: number }[]>();
+    visibleWorkouts.forEach((w) => {
+      if (!w.startTime) return; // Skip corrupted entries without a timestamp
+      // HealthKit workouts carry startTime as a Date object; local workouts as
+      // an ISO string. Normalize so date parsing can never throw (this used to
+      // crash History whenever Apple Health Workouts sync was on).
+      const startIso =
+        typeof w.startTime === 'string' ? w.startTime : new Date(w.startTime as any).toISOString();
+      const d = new Date(startIso.split('T')[0]);
       const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
       if (!groups.has(monthKey)) groups.set(monthKey, []);
-      groups.get(monthKey)!.push(item);
+      groups.get(monthKey)!.push({ workout: w, timestamp: new Date(startIso).getTime() });
     });
 
     const monthlyResult: MonthlyGroup[] = [];
-    groups.forEach((monthItems, monthKey) => {
+    groups.forEach((entries, monthKey) => {
       const [year, month] = monthKey.split('-');
-      const date = new Date(parseInt(year), parseInt(month) - 1);
-      const title = date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-
-      // Sort items within month (newest first)
-      monthItems.sort((a, b) => b.timestamp - a.timestamp);
-
-      // Extract workouts for the existing stats/MonthlyStatsPanel
-      const workouts = monthItems
-        .filter((i) => i.type === 'workout' && i.workout)
-        .map((i) => i.workout!);
-
-      const journalCount = monthItems.filter((i) => i.type === 'journal').length;
-      const habitCount = monthItems.filter((i) => i.type === 'habit_checkin').length;
-
+      const title = new Date(parseInt(year), parseInt(month) - 1)
+        .toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+      // Newest first within the month
+      const workouts = entries
+        .sort((a, b) => b.timestamp - a.timestamp)
+        .map((e) => e.workout);
       const stats = workouts.reduce(
         (acc, w) => ({
           totalWorkouts: acc.totalWorkouts + 1,
           totalDuration: acc.totalDuration + (w.duration || 0),
-          totalDistance: (acc.totalDistance || 0) + (w.distance || 0),
-          totalCalories: (acc.totalCalories || 0) + (w.calories || 0),
-          journalEntries: journalCount,
-          habitCheckIns: habitCount,
+          totalDistance: acc.totalDistance + (w.distance || 0),
+          totalCalories: acc.totalCalories + (w.calories || 0),
         }),
-        { totalWorkouts: 0, totalDuration: 0, totalDistance: 0, totalCalories: 0,
-          journalEntries: journalCount, habitCheckIns: habitCount }
+        { totalWorkouts: 0, totalDuration: 0, totalDistance: 0, totalCalories: 0 }
       );
-
-      monthlyResult.push({ key: monthKey, title, workouts, items: monthItems, stats });
+      monthlyResult.push({ key: monthKey, title, workouts, stats });
     });
 
     return monthlyResult.sort((a, b) => b.key.localeCompare(a.key));
-  }, [visibleWorkouts, journalEntries, habits, activeFilter]);
+  }, [visibleWorkouts]);
 
   // ============================================================================
   // Handlers
   // ============================================================================
-
-  const handleConnectHealth = async () => {
-    const healthAppName = Platform.OS === 'ios' ? 'Apple Health' : 'Health Connect';
-    try {
-      if (Platform.OS === 'ios') {
-        const quickStatus = healthKitService.getStatus();
-        if (!quickStatus.available) {
-          Toast.show({ type: 'error', text1: 'Not Available', text2: 'Apple Health is not available' });
-          return;
-        }
-        const result = await healthKitService.requestPermissions();
-        if (!result.success) {
-          Toast.show({ type: 'error', text1: 'Permission Denied', text2: result.error || 'Could not access Apple Health' });
-          return;
-        }
-        setHealthPermission(true);
-        await loadHealthWorkouts(true);
-        Toast.show({ type: 'success', text1: 'Connected', text2: 'Apple Health synced' });
-      } else if (Platform.OS === 'android') {
-        const quickStatus = healthConnectService.getStatus();
-        if (!quickStatus.available) {
-          Toast.show({ type: 'error', text1: 'Not Available', text2: 'Health Connect is not available' });
-          return;
-        }
-        const result = await healthConnectService.requestPermissions();
-        if (!result.success) {
-          Toast.show({ type: 'error', text1: 'Permission Denied', text2: result.error || 'Could not access Health Connect' });
-          return;
-        }
-        setHealthPermission(true);
-        await loadHealthWorkouts(true);
-        Toast.show({ type: 'success', text1: 'Connected', text2: 'Health Connect synced' });
-      }
-    } catch (error) {
-      Toast.show({ type: 'error', text1: 'Connection Failed', text2: `Could not connect to ${healthAppName}` });
-    }
-  };
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
     try {
       await Promise.all([
         loadLocalWorkouts(),
-        loadJournalEntries(),
-        loadHabits(),
         healthPermission ? loadHealthWorkouts(false) : Promise.resolve(),
       ]);
       // Force StatsCard to re-fetch today's steps (clears the 5s cache)
@@ -408,24 +186,36 @@ export const UnifiedWorkoutsTab: React.FC<UnifiedWorkoutsTabProps> = ({
     }
   };
 
-  const handlePostToSocial = async (workout: LocalWorkout) => {
-    if (!onPostToSocial) return;
-    try {
-      setPostingWorkoutId(workout.id); setPostingType('social');
-      await onPostToSocial(workout);
-    } catch (error) {
-      console.error('[UnifiedWorkouts] Post to social failed:', error);
-    } finally { setPostingWorkoutId(null); setPostingType(null); }
-  };
+  // On Nostr = published from this device, or imported from a relay 1301 note
+  const isOnNostr = (workout: Workout) =>
+    postedIds.has(workout.id) ||
+    !!(workout.metadata as any)?.nostrEventId ||
+    !!(workout.metadata as any)?.syncedToNostr;
 
-  const handleSocialShareHealthApp = async (workout: Workout) => {
-    if (!onSocialShareHealthApp) return;
-    try {
-      setPostingWorkoutId(workout.id); setPostingType('social');
-      await onSocialShareHealthApp(workout);
-    } catch (error) {
-      console.error('[UnifiedWorkouts] Health social share failed:', error);
-    } finally { setPostingWorkoutId(null); setPostingType(null); }
+  const handlePublish = async (workout: Workout) => {
+    if (postingWorkoutId) return;
+    setPostingWorkoutId(workout.id);
+    const npub = (workout as any).userId || userId;
+    // The stored id keeps the 1301 d-tag stable, so republishing replaces the note
+    const publishable: PublishableWorkout = {
+      ...(workout as any),
+      userId: npub || 'unknown',
+      sourceApp: (workout as any).sourceApp || 'RUNSTR',
+      canSyncToNostr: true,
+    };
+    const result = await publishRun(publishable);
+    setPostingWorkoutId(null);
+    if (result.status === 'published') {
+      setPostedIds((prev) => new Set(prev).add(workout.id));
+    } else {
+      Toast.show({
+        type: 'error',
+        text1: result.status === 'noSigner' ? 'No signing key' : 'Couldn’t publish',
+        text2: result.status === 'noSigner'
+          ? 'Log in with a Nostr key to publish runs'
+          : 'Couldn’t reach relays. Try again later.',
+      });
+    }
   };
 
   const handleDeleteWorkout = async (workoutId: string) => {
@@ -444,15 +234,6 @@ export const UnifiedWorkoutsTab: React.FC<UnifiedWorkoutsTabProps> = ({
     setAlertVisible(true);
   };
 
-  const handleJournalPress = useCallback((entry: JournalEntry) => {
-    setEditingJournalEntry(entry);
-    setJournalModalVisible(true);
-  }, []);
-
-  const handleJournalSave = useCallback((_entry: JournalEntry) => {
-    loadJournalEntries(); // Refresh journal data
-  }, []);
-
   // ============================================================================
   // Renderers
   // ============================================================================
@@ -463,7 +244,7 @@ export const UnifiedWorkoutsTab: React.FC<UnifiedWorkoutsTabProps> = ({
       const isHealthSource = workout.source === 'healthkit' || workout.source === 'health_connect';
       const canDelete = isLocal && !isHealthSource;
       const isPosting = postingWorkoutId === workout.id;
-      const localWorkout = localWorkouts.find((w) => w.id === workout.id);
+      const onNostr = isOnNostr(workout);
 
       return (
         <Pressable
@@ -476,21 +257,23 @@ export const UnifiedWorkoutsTab: React.FC<UnifiedWorkoutsTabProps> = ({
         >
           <EnhancedWorkoutCard workout={workout} hideActions={true} />
           <View style={styles.workoutActions}>
-            {isWoTEligible && (
+            {onNostr ? (
+              <View style={styles.nostrStatus}>
+                <Ionicons name="checkmark-circle" size={16} color={theme.colors.accent} />
+                <Text style={styles.nostrStatusText}>On Nostr</Text>
+              </View>
+            ) : (
               <PressableScale
                 style={[styles.actionButton, styles.postButton]}
-                onPress={() => {
-                  if (isLocal && localWorkout) handlePostToSocial(localWorkout);
-                  else handleSocialShareHealthApp(workout);
-                }}
-                disabled={isPosting && postingType === 'social'}
+                onPress={() => handlePublish(workout)}
+                disabled={isPosting}
               >
-                {isPosting && postingType === 'social' ? (
+                {isPosting ? (
                   <ActivityIndicator size="small" color="#000" />
                 ) : (
                   <>
                     <Ionicons name="paper-plane-outline" size={16} color="#000" />
-                    <Text style={styles.postButtonText}>Post</Text>
+                    <Text style={styles.postButtonText}>Publish to Nostr</Text>
                   </>
                 )}
               </PressableScale>
@@ -507,47 +290,19 @@ export const UnifiedWorkoutsTab: React.FC<UnifiedWorkoutsTabProps> = ({
         </Pressable>
       );
     },
-    [localWorkoutIds, localWorkouts, postingWorkoutId, postingType, isWoTEligible]
-  );
-
-  const renderTimelineItem = useCallback(
-    (item: TimelineItem) => {
-      if (item.type === 'journal' && item.journalEntry) {
-        return (
-          <TimelineEntryCard
-            type="journal"
-            entry={item.journalEntry}
-            onPress={handleJournalPress}
-          />
-        );
-      }
-      if (item.type === 'habit_checkin' && item.habitCheckIn) {
-        return (
-          <TimelineEntryCard
-            type="habit"
-            habit={item.habitCheckIn.habit}
-            date={item.habitCheckIn.date}
-          />
-        );
-      }
-      return <View />;
-    },
-    [handleJournalPress]
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [localWorkoutIds, postingWorkoutId, postedIds, userId]
   );
 
   const renderMonthlyGroup = ({ item, index }: { item: MonthlyGroup; index: number }) => (
     <MonthlyWorkoutGroup
       group={item}
       renderWorkout={renderWorkout}
-      renderTimelineItem={renderTimelineItem}
-      defaultExpanded={false}
+      defaultExpanded={index === 0}
     />
   );
 
   const healthAppName = Platform.OS === 'ios' ? 'Apple Health' : 'Health Connect';
-  const totalItems = monthlyGroups.reduce(
-    (sum, g) => sum + (g.items?.length || g.workouts.length), 0
-  );
 
   return (
     <View style={styles.container}>
@@ -589,28 +344,20 @@ export const UnifiedWorkoutsTab: React.FC<UnifiedWorkoutsTabProps> = ({
           pubkey ? <StatsCard userPubkey={pubkey} refreshKey={statsRefreshKey} /> : null
         }
         ListFooterComponent={
-          totalItems > 0 ? (
+          visibleWorkouts.length > 0 ? (
             <View style={styles.footer}>
-              <Text style={styles.footerText}>
-                {totalItems} item{totalItems !== 1 ? 's' : ''}
-              </Text>
               <Text style={styles.footerSubtext}>
-                {visibleWorkouts.length} workout{visibleWorkouts.length !== 1 ? 's' : ''}
-                {FEATURES.journalHabits && journalEntries.length > 0 && ` \u2022 ${journalEntries.length} journal`}
-                {FEATURES.journalHabits && habits.length > 0 && ` \u2022 ${habits.reduce((sum, h) => sum + h.checkIns.length, 0)} habit check-ins`}
+                {visibleWorkouts.length} run{visibleWorkouts.length !== 1 ? 's' : ''}
               </Text>
             </View>
           ) : null
         }
-        ListEmptyComponent={null}
-      />
-
-      {/* Journal Editor Modal */}
-      <JournalEditorModal
-        visible={journalModalVisible}
-        onClose={() => { setJournalModalVisible(false); setEditingJournalEntry(null); }}
-        onSave={handleJournalSave}
-        entry={editingJournalEntry}
+        ListEmptyComponent={
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyStateTitle}>No runs yet</Text>
+            <Text style={styles.emptyStateText}>Finished runs show up here.</Text>
+          </View>
+        }
       />
 
       <CustomAlert
@@ -637,21 +384,16 @@ export const UnifiedWorkoutsTab: React.FC<UnifiedWorkoutsTabProps> = ({
     const isHealthSource =
       workout.source === 'healthkit' || workout.source === 'health_connect';
     const canDelete = isLocal && !isHealthSource;
-    const localWorkout = localWorkouts.find((w) => w.id === workout.id);
     const actions: WorkoutAction[] = [];
 
-    if (isWoTEligible) {
+    if (!isOnNostr(workout)) {
       actions.push({
-        id: 'share',
-        label: 'Share to Social',
+        id: 'publish',
+        label: 'Publish to Nostr',
         icon: 'paper-plane-outline',
-        onPress: () => {
-          if (isLocal && localWorkout) handlePostToSocial(localWorkout);
-          else handleSocialShareHealthApp(workout);
-        },
+        onPress: () => handlePublish(workout),
       });
     }
-
 
     if (canDelete) {
       actions.push({
@@ -704,6 +446,10 @@ const styles = StyleSheet.create({
   },
   postButton: { backgroundColor: theme.colors.text, flex: 1.5 },
   postButtonText: { color: '#000', fontSize: 14, fontWeight: '600' },
+  nostrStatus: {
+    flex: 1.5, flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 4,
+  },
+  nostrStatusText: { color: theme.colors.textMuted, fontSize: 13, fontWeight: '500' },
   deleteButton: {
     backgroundColor: '#111111',
     borderWidth: 1, borderColor: theme.colors.border, flex: 1,

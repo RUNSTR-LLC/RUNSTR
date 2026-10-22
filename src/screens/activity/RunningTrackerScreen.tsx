@@ -4,25 +4,9 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  Platform,
-  ScrollView,
-  InteractionManager,
-  StatusBar,
-} from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { View, StyleSheet, Platform, ScrollView, InteractionManager, StatusBar } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import * as Haptics from 'expo-haptics';
-import * as TaskManager from 'expo-task-manager';
-import * as Device from 'expo-device';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTranslation } from 'react-i18next';
-import { theme } from '../../styles/theme';
-const WEEKLY_DISTANCE_UPDATE_KEY = '@runstr:weekly_distance_last_updated_running';
 import { CustomAlert } from '../../components/ui/CustomAlert';
 import { simpleRunTracker } from '../../services/activity/SimpleRunTracker';
 import { useStartCountdown } from '../../hooks/useStartCountdown';
@@ -31,22 +15,13 @@ import type {
 } from '../../services/activity/SimpleRunTracker';
 import type { Split } from '../../services/activity/SplitTrackingService';
 import { activityMetricsService } from '../../services/activity/ActivityMetricsService';
-import type { FormattedMetrics } from '../../services/activity/ActivityMetricsService';
 import { BatteryWarning } from '../../components/activity/BatteryWarning';
 import { WorkoutSummaryModal } from '../../components/activity/WorkoutSummaryModal';
 import LocalWorkoutStorageService from '../../services/fitness/LocalWorkoutStorageService';
-import routeStorageService from '../../services/routes/RouteStorageService';
-import { RouteSelectionModal } from '../../components/routes/RouteSelectionModal';
 import { HoldToStartButton } from '../../components/activity/HoldToStartButton';
-import { AppStateManager } from '../../services/core/AppStateManager';
-// Weekly distance goal components
-import { DistanceGoalPickerModal } from '../../components/activity/DistanceGoalPickerModal';
-import { weeklyDistanceGoalService } from '../../services/activity/WeeklyDistanceGoalService';
-import type { DistanceGoalProgress } from '../../services/activity/WeeklyDistanceGoalService';
-import { EnhancedSocialShareModal } from '../../components/profile/shared/EnhancedSocialShareModal';
-import { nostrProfileService } from '../../services/nostr/NostrProfileService';
-import type { NostrProfile } from '../../services/nostr/NostrProfileService';
-import type { PublishableWorkout } from '../../services/nostr/workoutPublishingService';
+import { TrackerControls } from '../../components/activity/TrackerControls';
+import { useLiveRunMetrics, formatElapsedTime } from './useLiveRunMetrics';
+import { useActiveRunGuard } from './useActiveRunGuard';
 // New redesigned components
 import { HeroMetric } from '../../components/activity/HeroMetric';
 import {
@@ -59,40 +34,12 @@ import { CountdownOverlay } from '../../components/activity/CountdownOverlay';
 import { ActivityDebugOverlay } from '../../components/debug/ActivityDebugOverlay';
 import { StepDebugOverlay } from '../../components/debug/StepDebugOverlay';
 
-type PostingState = 'idle' | 'posting' | 'posted';
 
 // DEBUG MODE - Set to true for debug APK builds, false for production
 const DEBUG_MODE = false;
 
 // Constants
-const TIMER_INTERVAL_MS = 1000; // Update timer every second
-const METRICS_UPDATE_INTERVAL_MS = 1000; // Update metrics every second for running
 const MIN_WORKOUT_DISTANCE_METERS = 10; // Minimum distance to show workout summary
-const ZOMBIE_SESSION_TIMEOUT_MS = 4 * 60 * 60 * 1000; // 4 hours
-const ANDROID_BACKGROUND_WARNING_KEY =
-  '@runstr:android_background_warning_shown';
-
-
-interface MetricCardProps {
-  label: string;
-  value: string;
-  icon?: keyof typeof Ionicons.glyphMap;
-}
-
-const MetricCard: React.FC<MetricCardProps> = ({ label, value, icon }) => (
-  <View style={styles.metricCard}>
-    {icon && (
-      <Ionicons
-        name={icon}
-        size={20}
-        color={theme.colors.textMuted}
-        style={styles.metricIcon}
-      />
-    )}
-    <Text style={styles.metricValue}>{value}</Text>
-    <Text style={styles.metricLabel}>{label}</Text>
-  </View>
-);
 
 interface RunningTrackerScreenProps {
   onWorkoutStateChange?: (isActive: boolean) => void;
@@ -105,32 +52,19 @@ export const RunningTrackerScreen: React.FC<RunningTrackerScreenProps> = ({
   const { t } = useTranslation('profile');
   const [isTracking, setIsTracking] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
-  const [metrics, setMetrics] = useState<FormattedMetrics>({
-    distance: '0.00 km',
-    duration: '0:00',
-    pace: '--:--',
-    elevation: '0 m',
-  });
-  const [elapsedTime, setElapsedTime] = useState(0);
   const [summaryModalVisible, setSummaryModalVisible] = useState(false);
   const { countdown, start: startCountdown } = useStartCountdown(() =>
     proceedWithTracking()
   );
   const [workoutData, setWorkoutData] = useState<{
-    type: 'running' | 'walking' | 'cycling';
+    type: 'running';
     distance: number;
     duration: number;
     calories: number;
     elevation?: number;
     pace?: number;
-    speed?: number;
-    steps?: number;
     splits?: Split[];
-    localWorkoutId?: string; // For marking as synced later
-    routeId?: string; // Route label ID if tagged
-    routeName?: string; // Route label name for display
-    rewardSent?: boolean; // True if Bitcoin reward was sent
-    rewardAmount?: number; // Amount of sats rewarded
+    localWorkoutId?: string; // Absent when the local save failed
   } | null>(null);
   const [alertVisible, setAlertVisible] = useState(false);
   const [alertConfig, setAlertConfig] = useState<{
@@ -147,32 +81,17 @@ export const RunningTrackerScreen: React.FC<RunningTrackerScreenProps> = ({
     buttons: [],
   });
 
-  // Route state (simple label-based)
-  const [showRouteSelectionModal, setShowRouteSelectionModal] = useState(false);
-  const [selectedRoute, setSelectedRoute] = useState<{ id: string; name: string } | null>(null);
-
-  // Weekly distance goal state
-  const [weeklyDistance, setWeeklyDistance] = useState<number | null>(null);
-  const [distanceGoal, setDistanceGoal] = useState<number>(20);
-  const [distanceProgress, setDistanceProgress] =
-    useState<DistanceGoalProgress | null>(null);
-  const [distanceLoading, setDistanceLoading] = useState(true);
-  const [distancePostingState, setDistancePostingState] =
-    useState<PostingState>('idle');
-  const [goalPickerVisible, setGoalPickerVisible] = useState(false);
-  const [showSocialModal, setShowSocialModal] = useState(false);
-  const [userProfile, setUserProfile] = useState<NostrProfile | null>(null);
-  const [userId, setUserId] = useState<string>('');
-  const [preparedWorkout, setPreparedWorkout] =
-    useState<PublishableWorkout | null>(null);
-
-  const metricsUpdateRef = useRef<NodeJS.Timeout | null>(null);
   const isTrackingRef = useRef<boolean>(false); // Track isTracking without re-subscribing
   const isPausedRef = useRef<boolean>(false); // CRITICAL FIX: Track isPaused for beforeRemove listener
-  // Liveness detection: track when updateMetrics() last actually executed
-  // This detects "zombie" intervals that exist but stopped firing (Android throttling)
-  const lastMetricsUpdateRef = useRef<number>(Date.now());
-  // NOTE: Timer refs removed - SimpleRunTracker handles all timing internally via hybrid timer
+  // Live metrics interval + foreground sync + zombie-interval liveness check
+  const {
+    metrics,
+    elapsedTime,
+    updateMetrics,
+    startMetricsInterval,
+    stopMetricsInterval,
+    resetMetrics,
+  } = useLiveRunMetrics(isTracking, isTrackingRef);
 
   // CRITICAL FIX: Keep refs in sync with state for beforeRemove listener
   // This prevents stale closure issues after 30+ minutes of state changes
@@ -186,98 +105,8 @@ export const RunningTrackerScreen: React.FC<RunningTrackerScreenProps> = ({
     onWorkoutStateChange?.(isTracking && !isPaused);
   }, [isTracking, isPaused, onWorkoutStateChange]);
 
-  // CRITICAL: Prevent navigation away from tracker screen during active tracking
-  // This fixes the bug where users were unexpectedly navigated to profile screen mid-workout
-  // FIXED: Use refs instead of state to prevent race condition from listener recreation
-  useEffect(() => {
-    const unsubscribe = navigation.addListener('beforeRemove', (e: any) => {
-      // CRITICAL FIX: Use refs instead of state to avoid stale closure
-      // Only prevent navigation if actively tracking (not paused, not stopped)
-      if (!isTrackingRef.current || isPausedRef.current) {
-        return; // Allow navigation if not tracking or paused
-      }
-
-      // Prevent the default action (navigating away)
-      e.preventDefault();
-
-      // Show confirmation dialog
-      (CustomAlert as any).show({
-        title: 'Stop Tracking?',
-        message: 'You have an active workout. Do you want to stop and discard it?',
-        buttons: [
-          {
-            text: 'Continue Workout',
-            style: 'cancel',
-          },
-          {
-            text: 'Stop & Discard',
-            style: 'destructive',
-            onPress: async () => {
-              // Stop tracking and discard
-              await simpleRunTracker.stopTracking();
-              setIsTracking(false);
-              isTrackingRef.current = false;
-              isPausedRef.current = false;
-              // Now allow navigation
-              navigation.dispatch(e.data.action);
-            },
-          },
-        ],
-      });
-    });
-
-    return unsubscribe;
-  }, [navigation]); // FIXED: Only depend on navigation, not state - refs handle state changes
-
-  // Extract metrics update logic to reusable function (defined early for useEffect)
-  const updateMetrics = () => {
-    // LIVENESS: Mark that updateMetrics actually executed (for zombie detection)
-    lastMetricsUpdateRef.current = Date.now();
-
-    // FIX: Removed AppStateManager check that was stopping UI updates
-    // The interval management in useEffect handles background/foreground properly
-    // This check was causing UI to freeze when iOS sent spurious background events
-
-    const session = simpleRunTracker.getCurrentSession(); // NOW SYNCHRONOUS!
-
-    if (
-      session &&
-      session.distance !== undefined &&
-      session.duration !== undefined
-    ) {
-      const formattedDuration = formatElapsedTime(session.duration);
-
-      const currentMetrics = {
-        distance: session.distance,
-        duration: session.duration,
-        pace: activityMetricsService.calculatePace(
-          session.distance,
-          session.duration
-        ),
-        elevationGain: session.elevationGain || 0, // FIXED: Use actual elevation from session
-      };
-
-      const formatted = activityMetricsService.getFormattedMetrics(
-        currentMetrics,
-        'running'
-      );
-      formatted.duration = formattedDuration;
-
-      setMetrics(formatted);
-      setElapsedTime(session.duration);
-    }
-  };
-
-  // Helper function to safely start metrics interval (prevents duplicates)
-  const startMetricsInterval = () => {
-    // Always clear existing interval first to prevent duplicates
-    if (metricsUpdateRef.current) {
-      clearInterval(metricsUpdateRef.current);
-    }
-    metricsUpdateRef.current = setInterval(() => {
-      updateMetrics();
-    }, METRICS_UPDATE_INTERVAL_MS);
-  };
+  // Confirm before navigating away from an active (unpaused) run
+  useActiveRunGuard(navigation, isTrackingRef, isPausedRef, () => setIsTracking(false));
 
   // Check for active session on mount (fixes session loss on app switch)
   // Also handles auto-recovery of interrupted workouts
@@ -286,9 +115,7 @@ export const RunningTrackerScreen: React.FC<RunningTrackerScreenProps> = ({
     // This eliminates 7-second blocking from AsyncStorage reads and GPS point processing
     InteractionManager.runAfterInteractions(() => {
       const restoreActiveSession = async () => {
-        console.log(
-          '[RunningTrackerScreen] Checking for active session (deferred for performance)...'
-        );
+        console.log('[RunningTrackerScreen] Checking for active session (deferred for performance)...');
 
         // First try to restore an active session (user switched apps and came back)
         const restored = await simpleRunTracker.restoreSession();
@@ -347,187 +174,8 @@ export const RunningTrackerScreen: React.FC<RunningTrackerScreenProps> = ({
 
       restoreActiveSession();
     });
-
-    return () => {
-      // Cleanup timers on unmount
-      if (metricsUpdateRef.current) clearInterval(metricsUpdateRef.current);
-    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  // Load user profile for social sharing
-  useEffect(() => {
-    let isMounted = true;
-    const loadProfileAndId = async () => {
-      try {
-        const pubkey = await AsyncStorage.getItem('@runstr:hex_pubkey');
-        const npub = await AsyncStorage.getItem('@runstr:npub');
-        const activeUserId = npub || pubkey || '';
-        if (isMounted) setUserId(activeUserId);
-
-        if (pubkey) {
-          const profile = await nostrProfileService.getProfile(pubkey);
-          if (isMounted) setUserProfile(profile);
-        }
-      } catch (error) {
-        console.error(
-          '[RunningTrackerScreen] Failed to load user profile:',
-          error
-        );
-      }
-    };
-
-    loadProfileAndId();
-    return () => { isMounted = false; };
-  }, []);
-
-  // Load weekly distance data on mount
-  useEffect(() => {
-    let isMounted = true;
-    const loadWeeklyDistance = async () => {
-      try {
-        if (isMounted) setDistanceLoading(true);
-
-        const goal = await weeklyDistanceGoalService.getGoal('running');
-        if (isMounted) setDistanceGoal(goal);
-
-        const distance =
-          await weeklyDistanceGoalService.getWeeklyDistance('running');
-        if (isMounted) setWeeklyDistance(distance);
-
-        const progress = weeklyDistanceGoalService.calculateProgress(
-          distance,
-          goal
-        );
-        if (isMounted) {
-          setDistanceProgress(progress);
-          setDistanceLoading(false);
-        }
-      } catch (error) {
-        console.error(
-          '[RunningTrackerScreen] Error loading weekly distance:',
-          error
-        );
-        if (isMounted) setDistanceLoading(false);
-      }
-    };
-
-    loadWeeklyDistance();
-    return () => { isMounted = false; };
-  }, []);
-
-  // AppState listener for background/foreground transitions - using AppStateManager
-  useEffect(() => {
-    const appStateManager = AppStateManager;
-    const unsubscribe = appStateManager.onStateChange(async (isActive) => {
-      if (!isActive) {
-        // FIX iOS 30-min issue: Don't clear timers unless TRULY backgrounded
-        // iOS sometimes sends spurious background events while app is still visible
-        console.log(
-          '[RunningTrackerScreen] App state change detected - verifying if truly backgrounded...'
-        );
-
-        // Give iOS a moment to stabilize before clearing intervals
-        setTimeout(() => {
-          // Double-check if app is still inactive before clearing
-          if (!appStateManager.isActive()) {
-            console.log(
-              '[RunningTrackerScreen] Confirmed backgrounded, pausing UI updates...'
-            );
-            // Don't clear intervals, just mark them as paused
-            // This prevents losing them due to spurious events
-          }
-        }, 500);
-      } else if (isActive && isTrackingRef.current) {
-        // App returned to foreground - restart timers and sync data
-        console.log(
-          '[RunningTrackerScreen] App returned to foreground, ensuring timers are running...'
-        );
-
-        // Restart timers if not already running
-        if (!metricsUpdateRef.current) {
-          startMetricsInterval();
-        }
-
-        // MEMORY-ONLY ARCHITECTURE: No GPS sync needed, distance is calculated incrementally
-        // getCurrentSession() is now synchronous!
-        const session = simpleRunTracker.getCurrentSession();
-        if (
-          session &&
-          session.distance !== undefined &&
-          session.duration !== undefined
-        ) {
-          const formattedDuration = formatElapsedTime(session.duration);
-
-          const currentMetrics = {
-            distance: session.distance,
-            duration: session.duration,
-            pace: activityMetricsService.calculatePace(
-              session.distance,
-              session.duration
-            ),
-            elevationGain: session.elevationGain || 0, // FIXED: Use actual elevation from session
-          };
-
-          const formatted = activityMetricsService.getFormattedMetrics(
-            currentMetrics,
-            'running'
-          );
-          formatted.duration = formattedDuration;
-
-          setMetrics(formatted);
-          setElapsedTime(session.duration);
-
-          console.log(
-            `[RunningTrackerScreen] ✅ Synced: ${(
-              session.distance / 1000
-            ).toFixed(2)} km, ` + `${session.duration}s`
-          );
-        }
-      }
-    });
-
-    return () => {
-      unsubscribe();
-    };
-  }, []); // Subscribe only once to avoid race conditions
-
-  // NOTE: isTrackingRef sync removed - consolidated at lines 179-182 to prevent duplicate updates
-
-  // FIX iOS 30-min issue + Android throttling: Health check with LIVENESS detection
-  // This prevents UI freeze from:
-  // 1. iOS spurious background events that clear intervals
-  // 2. Android throttling intervals to "zombie" state (exist but don't fire)
-  useEffect(() => {
-    if (!isTracking) return;
-
-    const healthCheckInterval = setInterval(() => {
-      // LIVENESS CHECK: Detect "zombie" intervals that exist but stopped firing
-      // This happens when Android throttles background JS execution
-      // Using 10s threshold to avoid false positives from GPS delays or React lag
-      const timeSinceLastUpdate = Date.now() - lastMetricsUpdateRef.current;
-      const isZombieInterval = metricsUpdateRef.current && timeSinceLastUpdate > 10000;
-
-      if (isZombieInterval) {
-        console.log(
-          `[RunningTrackerScreen] 🧟 ZOMBIE INTERVAL DETECTED - no update for ${(timeSinceLastUpdate / 1000).toFixed(1)}s, restarting...`
-        );
-        // Kill the zombie and create a fresh interval
-        startMetricsInterval();
-      }
-
-      // If we're tracking but metrics interval is completely dead (null), restart it
-      if (isTracking && !metricsUpdateRef.current) {
-        console.log(
-          '[RunningTrackerScreen] Metrics interval was null, restarting...'
-        );
-        startMetricsInterval();
-      }
-    }, 5000); // Check every 5 seconds
-
-    return () => {
-      clearInterval(healthCheckInterval);
-    };
-  }, [isTracking]);
 
   const handleHoldComplete = async () => {
     console.log('[RunningTrackerScreen] Hold complete, starting countdown...');
@@ -568,10 +216,7 @@ export const RunningTrackerScreen: React.FC<RunningTrackerScreenProps> = ({
         ],
       });
       setAlertVisible(true);
-      console.error(
-        '[RunningTrackerScreen] Failed to start tracking:',
-        errorMessage
-      );
+      console.error('[RunningTrackerScreen] Failed to start tracking:', errorMessage);
     }
   };
 
@@ -583,19 +228,6 @@ export const RunningTrackerScreen: React.FC<RunningTrackerScreenProps> = ({
     // Call once immediately (fixes "duration doesn't move on start" bug)
     updateMetrics();
     startMetricsInterval();
-  };
-
-  const formatElapsedTime = (seconds: number): string => {
-    const hours = Math.floor(seconds / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
-    const secs = Math.floor(seconds % 60);
-
-    if (hours > 0) {
-      return `${hours}:${minutes.toString().padStart(2, '0')}:${secs
-        .toString()
-        .padStart(2, '0')}`;
-    }
-    return `${minutes}:${secs.toString().padStart(2, '0')}`;
   };
 
   const pauseTracking = async () => {
@@ -633,11 +265,7 @@ export const RunningTrackerScreen: React.FC<RunningTrackerScreenProps> = ({
   };
 
   const stopTracking = async () => {
-    // Clear timers
-    if (metricsUpdateRef.current) {
-      clearInterval(metricsUpdateRef.current);
-      metricsUpdateRef.current = null;
-    }
+    stopMetricsInterval();
 
     try {
       const session = await simpleRunTracker.stopTracking();
@@ -652,15 +280,7 @@ export const RunningTrackerScreen: React.FC<RunningTrackerScreenProps> = ({
         // Only show summary if moved at least 10 meters
         showWorkoutSummary(session as RunSession);
       } else {
-        // Reset metrics
-        setMetrics({
-          distance: '0.00 km',
-          duration: '0:00',
-          pace: '--:--',
-          elevation: '0 m',
-        });
-        setElapsedTime(0);
-        setSelectedRoute(null); // Clear selected route
+        resetMetrics();
       }
     } catch (error) {
       console.error('[RunningTrackerScreen] Failed to stop tracking:', error);
@@ -686,180 +306,35 @@ export const RunningTrackerScreen: React.FC<RunningTrackerScreenProps> = ({
       session.duration
     );
 
-    // Save workout to local storage BEFORE showing modal
-    // This ensures data persists even if user dismisses modal
-    try {
-      // Get start position for weather lookup (may be undefined in memory-only mode)
-      const startPosition = session.gpsPoints?.[0];
+    const summary = {
+      type: 'running' as const,
+      distance: session.distance,
+      duration: session.duration,
+      calories,
+      elevation: session.elevationGain || 0,
+      pace,
+      splits: session.splits,
+    };
 
+    // Save workout to local storage BEFORE showing the modal, so the run
+    // persists even if the user dismisses it
+    try {
+      // Start position for the weather lookup (may be undefined in memory-only mode)
+      const startPosition = session.gpsPoints?.[0];
       const result = await LocalWorkoutStorageService.saveGPSWorkout({
-        type: 'running',
-        distance: session.distance,
-        duration: session.duration,
-        calories,
-        elevation: session.elevationGain || 0,
-        pace,
-        splits: session.splits,
-        // Pass GPS coordinates for weather lookup
+        ...summary,
         startLatitude: startPosition?.latitude,
         startLongitude: startPosition?.longitude,
-        // Pass route info if selected
-        routeId: selectedRoute?.id,
-        routeLabel: selectedRoute?.name,
       });
-
       console.log(`[RunningTracker] GPS workout saved locally: ${result.workoutId}`);
-
-      // If a route was selected, add this workout to the route
-      if (selectedRoute && pace !== undefined) {
-        try {
-          await routeStorageService.addWorkoutToRoute(
-            selectedRoute.id,
-            result.workoutId,
-            session.duration,
-            pace
-          );
-          console.log(`[RunningTracker] Workout added to route "${selectedRoute.name}"`);
-        } catch (routeError) {
-          console.error('[RunningTracker] Failed to add workout to route:', routeError);
-        }
-      }
-
-      setWorkoutData({
-        type: 'running',
-        distance: session.distance,
-        duration: session.duration,
-        calories,
-        elevation: session.elevationGain || 0,
-        pace,
-        splits: session.splits, // ✅ Pass splits from SimpleRunTracker
-        localWorkoutId: result.workoutId, // Pass to modal for sync tracking
-        routeId: selectedRoute?.id, // Pass route info for achievements
-        routeName: selectedRoute?.name,
-      });
-      setSummaryModalVisible(true);
+      setWorkoutData({ ...summary, localWorkoutId: result.workoutId });
     } catch (error) {
+      // Still show the summary; without a localWorkoutId it reports the failed save
       console.error('❌ Failed to save workout locally:', error);
-      // Still show modal even if save failed
-      setWorkoutData({
-        type: 'running',
-        distance: session.distance,
-        duration: session.duration,
-        calories,
-        elevation: session.elevationGain || 0,
-        pace,
-        splits: session.splits, // ✅ Pass splits even if save failed
-        routeId: selectedRoute?.id, // Pass route info for achievements
-        routeName: selectedRoute?.name,
-      });
-      setSummaryModalVisible(true);
+      setWorkoutData(summary);
     }
-
-    // Reset metrics after showing summary
-    setMetrics({
-      distance: '0.00 km',
-      duration: '0:00',
-      pace: '--:--',
-      elevation: '0 m',
-    });
-    setElapsedTime(0);
-  };
-
-  // Handle posting weekly distance to Nostr
-  const handlePostWeeklyDistance = async () => {
-    if (!weeklyDistance || weeklyDistance === 0) {
-      console.warn('[RunningTrackerScreen] Cannot post - no distance available');
-      return;
-    }
-
-    if (distancePostingState === 'posted') {
-      console.warn('[RunningTrackerScreen] Weekly distance already posted');
-      return;
-    }
-
-    try {
-      setDistancePostingState('posting');
-      console.log(
-        `[RunningTrackerScreen] Preparing to post ${weeklyDistance.toFixed(2)}km weekly distance`
-      );
-
-      const weekBounds = weeklyDistanceGoalService.getWeekBounds();
-      const weekNumber = weeklyDistanceGoalService.getWeekNumber();
-
-      // Create PublishableWorkout for social sharing
-      const publishableWorkout: PublishableWorkout = {
-        id: `weekly_running_${weekNumber}_${Date.now()}`,
-        userId: userId || 'unknown',
-        type: 'running',
-        startTime: weekBounds.start.toISOString(),
-        endTime: weekBounds.end.toISOString(),
-        duration: 0, // Weekly summary - no specific duration
-        distance: weeklyDistance * 1000, // Convert km to meters
-        calories: Math.round(weeklyDistance * 60), // Rough estimate
-        source: 'manual',
-        syncedAt: new Date().toISOString(),
-        sourceApp: 'RUNSTR',
-        unitSystem: 'metric',
-        canSyncToNostr: true,
-        metadata: {
-          title: `Week ${weekNumber} Running`,
-          sourceApp: 'RUNSTR',
-          notes: `Weekly running: ${weeklyDistance.toFixed(2)}km / ${distanceGoal}km goal (${distanceProgress?.percentage || 0}%)`,
-          weeklyGoal: distanceGoal,
-          weeklyProgress: distanceProgress?.percentage || 0,
-        },
-      };
-
-      // Open social share modal
-      // Note: State stays as 'posting' while modal is open to prevent double-tap
-      // State is reset in modal's onClose (cancelled) or onSuccess (posted) callbacks
-      setPreparedWorkout(publishableWorkout);
-      setShowSocialModal(true);
-
-      console.log(
-        `[RunningTrackerScreen] ✅ Opening social share modal for weekly distance`
-      );
-    } catch (error) {
-      console.error(
-        '[RunningTrackerScreen] ❌ Failed to post weekly distance:',
-        error
-      );
-      setDistancePostingState('idle');
-
-      setAlertConfig({
-        title: 'Failed to Post',
-        message: 'Could not share weekly distance. Please try again.',
-        buttons: [{ text: 'OK', style: 'default' }],
-      });
-      setAlertVisible(true);
-    }
-  };
-
-  // Handle setting distance goal
-  const handleSetGoal = () => {
-    console.log('[RunningTrackerScreen] Opening goal selection modal...');
-    setGoalPickerVisible(true);
-  };
-
-  // Handle goal selected from picker
-  const handleGoalSelected = async (newGoal: number) => {
-    try {
-      await weeklyDistanceGoalService.setGoal('running', newGoal);
-      setDistanceGoal(newGoal);
-
-      // Recalculate progress
-      if (weeklyDistance !== null) {
-        const progress = weeklyDistanceGoalService.calculateProgress(
-          weeklyDistance,
-          newGoal
-        );
-        setDistanceProgress(progress);
-      }
-
-      console.log(`[RunningTrackerScreen] ✅ Goal updated to ${newGoal}km`);
-    } catch (error) {
-      console.error('[RunningTrackerScreen] ❌ Failed to update goal:', error);
-    }
+    setSummaryModalVisible(true);
+    resetMetrics();
   };
 
   // Prepare splits for SplitsBar
@@ -912,14 +387,6 @@ export const RunningTrackerScreen: React.FC<RunningTrackerScreenProps> = ({
           {/* Battery Warning */}
           <BatteryWarning />
 
-          {/* Selected Route Display */}
-          {selectedRoute && (
-            <View style={styles.selectedRouteDisplay}>
-              <Ionicons name="map" size={16} color={theme.colors.accent} />
-              <Text style={styles.selectedRouteText}>{selectedRoute.name}</Text>
-            </View>
-          )}
-
           {/* Hero Metrics - Distance + Duration (stacked, large) */}
           <HeroMetric
             primaryValue={distanceValue}
@@ -940,53 +407,12 @@ export const RunningTrackerScreen: React.FC<RunningTrackerScreenProps> = ({
 
       {/* Fixed Control Buttons - Only show when tracking */}
       {isTracking && (
-        <View style={styles.fixedControlsWrapper}>
-          <View style={styles.controlsContainer}>
-            {!isPaused ? (
-              <TouchableOpacity
-                style={styles.pauseButton}
-                onPress={() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  pauseTracking();
-                }}
-                activeOpacity={0.7}
-                accessibilityLabel="Pause workout"
-                accessibilityRole="button"
-              >
-                <Ionicons name="pause" size={30} color={theme.colors.text} />
-              </TouchableOpacity>
-            ) : (
-              <TouchableOpacity
-                style={styles.resumeButton}
-                onPress={() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  resumeTracking();
-                }}
-                activeOpacity={0.7}
-                accessibilityLabel="Resume workout"
-                accessibilityRole="button"
-              >
-                <Ionicons
-                  name="play"
-                  size={30}
-                  color={theme.colors.background}
-                />
-              </TouchableOpacity>
-            )}
-            <TouchableOpacity
-              style={styles.stopButton}
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                stopTracking();
-              }}
-              activeOpacity={0.7}
-              accessibilityLabel="Stop workout"
-              accessibilityRole="button"
-            >
-              <Ionicons name="stop" size={30} color={theme.colors.text} />
-            </TouchableOpacity>
-          </View>
-        </View>
+        <TrackerControls
+          isPaused={isPaused}
+          onPause={pauseTracking}
+          onResume={resumeTracking}
+          onStop={stopTracking}
+        />
       )}
 
       {/* Workout Summary Modal */}
@@ -997,7 +423,7 @@ export const RunningTrackerScreen: React.FC<RunningTrackerScreenProps> = ({
             setSummaryModalVisible(false);
             setWorkoutData(null);
           }}
-          workout={workoutData as any}
+          workout={workoutData}
         />
       )}
 
@@ -1010,49 +436,6 @@ export const RunningTrackerScreen: React.FC<RunningTrackerScreenProps> = ({
         onClose={() => setAlertVisible(false)}
       />
 
-      {/* Route Selection Modal */}
-      <RouteSelectionModal
-        visible={showRouteSelectionModal}
-        activityType="running"
-        onSelectRoute={(routeId, routeName) => {
-          setSelectedRoute({ id: routeId, name: routeName });
-          setShowRouteSelectionModal(false);
-          console.log(`[RunningTracker] Selected route: ${routeName}`);
-        }}
-        onClose={() => setShowRouteSelectionModal(false)}
-      />
-
-      {/* Distance Goal Picker Modal */}
-      <DistanceGoalPickerModal
-        visible={goalPickerVisible}
-        activityType="running"
-        currentGoal={distanceGoal}
-        onSelectGoal={handleGoalSelected}
-        onClose={() => setGoalPickerVisible(false)}
-      />
-
-      {/* Enhanced Social Share Modal */}
-      <EnhancedSocialShareModal
-        visible={showSocialModal}
-        workout={preparedWorkout}
-        userId={userId}
-        userAvatar={userProfile?.picture}
-        userName={userProfile?.name || userProfile?.display_name}
-        onClose={() => {
-          setShowSocialModal(false);
-          setPreparedWorkout(null);
-          // Reset to idle if user cancels - allows retry
-          setDistancePostingState('idle');
-        }}
-        onSuccess={() => {
-          setShowSocialModal(false);
-          setPreparedWorkout(null);
-          setDistancePostingState('posted');
-          console.log(
-            '[RunningTrackerScreen] ✅ Weekly distance posted successfully'
-          );
-        }}
-      />
       </View>
 
       {/* Debug Overlay - GPS death diagnosis (only in DEBUG_MODE and while tracking) */}
@@ -1076,11 +459,6 @@ const styles = StyleSheet.create({
   scrollableContent: {
     flex: 1,
   },
-  idleScrollContent: {
-    paddingHorizontal: 16,
-    paddingTop: 0,
-    paddingBottom: 160, // Space for fixed controls
-  },
   idleCenteredContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -1090,243 +468,5 @@ const styles = StyleSheet.create({
   trackingScrollContent: {
     paddingTop: 12,
     paddingBottom: 180,
-  },
-  // Activity Header (idle state)
-  activityHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 12,
-    marginBottom: 24,
-  },
-  activityTitle: {
-    fontSize: 20,
-    fontWeight: theme.typography.weights.bold,
-    color: theme.colors.text,
-    letterSpacing: 2,
-  },
-  // Route Picker Button (idle state)
-  routePickerButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: theme.colors.card,
-    borderRadius: 16,
-    paddingVertical: 18,
-    paddingHorizontal: 24,
-    marginTop: 16,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    gap: 10,
-  },
-  routePickerText: {
-    fontSize: 18,
-    fontWeight: theme.typography.weights.medium,
-    color: theme.colors.text,
-    flex: 1,
-    textAlign: 'center',
-  },
-  selectedRouteDisplay: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#111111',
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    marginHorizontal: 16,
-    marginBottom: 12,
-    borderRadius: 20,
-    gap: 8,
-  },
-  selectedRouteText: {
-    fontSize: 14,
-    fontWeight: theme.typography.weights.medium,
-    color: theme.colors.accent,
-  },
-  fixedControlsWrapper: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    paddingBottom: 24,
-    paddingTop: 16,
-    backgroundColor: theme.colors.background,
-    borderTopWidth: 1,
-    borderTopColor: theme.colors.border,
-    // Subtle elevation for iOS
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    // Shadow for Android
-    elevation: 8,
-  },
-  gpsContainer: {
-    marginBottom: 16,
-  },
-  metricsContainer: {
-    justifyContent: 'flex-start',
-    paddingTop: 12,
-    paddingBottom: 12, // Ensure space for controls
-  },
-  metricsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 12,
-  },
-  metricCard: {
-    flex: 1,
-    backgroundColor: theme.colors.card,
-    borderRadius: 12,
-    padding: 16,
-    marginHorizontal: 6,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-  },
-  metricIcon: {
-    marginBottom: 8,
-  },
-  metricValue: {
-    fontSize: 32,
-    fontWeight: theme.typography.weights.bold,
-    color: theme.colors.text,
-    marginBottom: 4,
-  },
-  metricLabel: {
-    fontSize: 14,
-    color: theme.colors.textMuted,
-    fontWeight: theme.typography.weights.medium,
-  },
-  controlsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: 20,
-  },
-  routesButton: {
-    backgroundColor: theme.colors.card,
-    borderRadius: 12,
-    paddingVertical: 14,
-    paddingHorizontal: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexDirection: 'row',
-    gap: 8,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-  },
-  routesButtonText: {
-    color: theme.colors.text,
-    fontSize: 16,
-    fontWeight: theme.typography.weights.bold,
-    letterSpacing: 0.5,
-  },
-  startButton: {
-    backgroundColor: theme.colors.text,
-    borderRadius: 12,
-    paddingVertical: 16,
-    paddingHorizontal: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  startButtonText: {
-    color: '#000000',
-    fontSize: 16,
-    fontWeight: theme.typography.weights.bold,
-    letterSpacing: 0.5,
-  },
-  pauseButton: {
-    backgroundColor: theme.colors.card,
-    borderRadius: 35,
-    width: 70,
-    height: 70,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: theme.colors.border,
-  },
-  resumeButton: {
-    backgroundColor: theme.colors.orangeBright, // Orange for resume
-    borderRadius: 35,
-    width: 70,
-    height: 70,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  stopButton: {
-    backgroundColor: theme.colors.card, // Dark gray for stop
-    borderRadius: 35,
-    width: 70,
-    height: 70,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: theme.colors.border,
-  },
-  splitsContainer: {
-    marginTop: 20,
-    backgroundColor: theme.colors.card,
-    borderRadius: 12,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: theme.colors.orangeDeep,
-    maxHeight: 220, // Fits ~5 splits, scrollable for longer runs
-    flexShrink: 1, // Allow shrinking if space is limited
-  },
-  splitsTitle: {
-    fontSize: 14,
-    fontWeight: theme.typography.weights.bold,
-    color: theme.colors.orangeBright,
-    marginBottom: 12,
-    letterSpacing: 0.5,
-  },
-  splitsScrollContent: {
-    gap: 4, // Reduced for compact layout
-  },
-  splitRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: theme.colors.background,
-    borderRadius: 8,
-    padding: 6, // Reduced for compact layout
-    borderWidth: 1,
-    borderColor: theme.colors.orangeDeep,
-  },
-  splitNumberContainer: {
-    width: 40,
-    marginRight: 12,
-  },
-  splitNumber: {
-    fontSize: 14, // Reduced for compact layout
-    fontWeight: theme.typography.weights.bold,
-    color: theme.colors.orangeBright,
-  },
-  splitTimeContainer: {
-    flex: 1,
-  },
-  splitTime: {
-    fontSize: 15, // Reduced for compact layout
-    fontWeight: theme.typography.weights.bold,
-    color: theme.colors.text,
-    marginBottom: 2,
-  },
-  splitPace: {
-    fontSize: 10, // Reduced for compact layout
-    color: theme.colors.textMuted,
-  },
-  splitIconContainer: {
-    marginLeft: 8,
-  },
-  countdownContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: '100%',
-    paddingVertical: 40,
-  },
-  countdownText: {
-    fontSize: 120,
-    fontWeight: theme.typography.weights.bold,
-    color: theme.colors.accent,
-    textAlign: 'center',
   },
 });

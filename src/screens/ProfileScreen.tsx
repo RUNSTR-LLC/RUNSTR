@@ -4,7 +4,7 @@
  * The signed-in user's home: profile hero and the running tracker.
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { OstrichRefreshScrollView } from '../components/ui/OstrichRefreshScrollView';
@@ -19,50 +19,9 @@ import { HeaderMusicControls } from '../components/music/HeaderMusicControls';
 import { ProfileHero } from '../components/profile/ProfileHero';
 import { ScreenErrorBoundary } from '../components/ui/ScreenErrorBoundary';
 import { TopBar } from '../components/ui/TopBar';
-import { NotificationBadge } from '../components/profile/NotificationBadge';
-import { NotificationModal } from '../components/profile/NotificationModal';
-import LocalWorkoutStorageService from '../services/fitness/LocalWorkoutStorageService';
-import { ActivityCategoryBar } from '../components/activity/ActivityCategoryBar';
-import { activityGridService, type GridPosition } from '../services/activity/ActivityGridService';
 import { appPermissionService } from '../services/initialization/AppPermissionService';
 import { PermissionRequestModal } from '../components/permissions/PermissionRequestModal';
-import { FEATURES } from '../config/features';
 import { RunningTrackerScreen } from './activity/RunningTrackerScreen';
-
-const GRACE_PERIOD_DAYS = 3;
-
-function computeCurrentStreak(workouts: { startTime: string; source: string }[]): number {
-  const qualifying = workouts.filter((w) => w.source !== 'daily_steps');
-  const uniqueDates = [
-    ...new Set(qualifying.map((w) => w.startTime?.slice(0, 10)).filter(Boolean)),
-  ].sort((a, b) => (b > a ? 1 : -1));
-
-  if (uniqueDates.length === 0) return 0;
-
-  const dates = [...uniqueDates].reverse();
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const mostRecent = new Date(dates[dates.length - 1]);
-  mostRecent.setHours(0, 0, 0, 0);
-  const daysSinceLast = Math.round(
-    (today.getTime() - mostRecent.getTime()) / (24 * 60 * 60 * 1000)
-  );
-
-  if (daysSinceLast >= GRACE_PERIOD_DAYS) return 0;
-
-  let streak = 1;
-  for (let i = dates.length - 2; i >= 0; i--) {
-    const curr = new Date(dates[i + 1]);
-    const prev = new Date(dates[i]);
-    const gap = Math.round((curr.getTime() - prev.getTime()) / (24 * 60 * 60 * 1000));
-    if (gap <= GRACE_PERIOD_DAYS) {
-      streak++;
-    } else {
-      break;
-    }
-  }
-  return streak;
-}
 
 interface ProfileScreenProps {
   data: ProfileScreenData;
@@ -90,52 +49,17 @@ const ProfileScreenComponent: React.FC<ProfileScreenProps> = ({
   const navigation = useNavigation<any>();
 
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [showNotificationModal, setShowNotificationModal] = useState(false);
   const [musicPlayerHeaderEnabled, setMusicPlayerHeaderEnabled] = useState(false);
-  const [currentStreak, setCurrentStreak] = useState(0);
-
-  // Activity launcher state
-  const [gridPosition, setGridPosition] = useState<GridPosition>({ row: 0, column: 0 });
-  const [positionLoaded, setPositionLoaded] = useState(false);
   const [isWorkoutActive, setIsWorkoutActive] = useState(false);
 
-  // Permission state (deferred to hold-start for cardio)
-  const [permissionsReady, setPermissionsReady] = useState(false);
+  // Location permission: null until the first check resolves, so the location gate never flashes
+  const [permissionsReady, setPermissionsReady] = useState<boolean | null>(null);
   const [showPermissionModal, setShowPermissionModal] = useState(false);
 
-  // Refresh streak + music header on focus
+  // Refresh the music header preference on focus
   useFocusEffect(useCallback(() => {
     MusicPlayerPreferencesService.isMusicPlayerHeaderEnabled().then(setMusicPlayerHeaderEnabled);
-    LocalWorkoutStorageService.getAllWorkouts()
-      .then((w) => setCurrentStreak(computeCurrentStreak(w)))
-      .catch(() => {});
   }, []));
-
-
-  // Load saved activity grid position on mount
-  useEffect(() => {
-    let isMounted = true;
-    const loadPosition = async () => {
-      const saved = await activityGridService.loadPosition();
-      if (isMounted) {
-        setGridPosition(saved);
-        setPositionLoaded(true);
-      }
-    };
-    loadPosition();
-    return () => { isMounted = false; };
-  }, []);
-
-  // Save position when it changes
-  useEffect(() => {
-    if (!positionLoaded) return;
-    activityGridService.savePosition(gridPosition);
-  }, [gridPosition, positionLoaded]);
-
-  // Safety: reset workout state when activity changes (prevents stuck-in-workout state)
-  useEffect(() => {
-    setIsWorkoutActive(false);
-  }, [gridPosition]);
 
   // Silent permission check — re-runs on focus so revoking in Settings re-gates the UI
   useFocusEffect(useCallback(() => {
@@ -145,10 +69,6 @@ const ProfileScreenComponent: React.FC<ProfileScreenProps> = ({
     });
     return () => { isMounted = false; };
   }, []));
-
-  const handleActivitySelect = useCallback((row: number, column: number) => {
-    setGridPosition({ row, column });
-  }, []);
 
   const handleSettingsPress = useCallback(() => {
     navigation.navigate('Settings', {
@@ -179,30 +99,15 @@ const ProfileScreenComponent: React.FC<ProfileScreenProps> = ({
     } finally { setIsRefreshing(false); }
   }, [onRefresh]);
 
-  const handleTeamPress = useCallback(() => {
-    if (!FEATURES.teams) return;
-    const team = data?.currentTeam;
-    if (!team) return;
-    navigation.navigate('ClubChat', {
-      clubId: team.id,
-      clubName: team.name,
-      captainNpub: '',
-    });
-  }, [navigation, data?.currentTeam]);
-
   const handleEditPress = useCallback(() => {
     const parent = navigation.getParent();
     (parent || navigation).navigate('ProfileEdit' as any);
   }, [navigation]);
 
   const renderTracker = () => {
-    if (!positionLoaded) return null;
-
-    const { category } = activityGridService.getActivityAt(gridPosition);
-    const isCardio = category.key === 'cardio';
-
-    // For cardio, check permissions before rendering tracker
-    if (isCardio && !permissionsReady) {
+    if (permissionsReady === null) return null;
+    // The tracker needs location before it can start
+    if (!permissionsReady) {
       return (
         <View style={styles.permissionGate}>
           <TouchableOpacity
@@ -232,7 +137,7 @@ const ProfileScreenComponent: React.FC<ProfileScreenProps> = ({
     <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: theme.colors.background }}>
       {/* edges={[]} — the SafeAreaView above already applies the top inset.
           TexturedBackground defaults to edges={['top']}, which would double the
-          inset and push the TopBar lower than on the Social/Leaderboard tabs. */}
+          inset and push the TopBar down. */}
       <TexturedBackground edges={[]}>
         {/* Header — hidden during active workout */}
       {!isWorkoutActive && (
@@ -260,32 +165,7 @@ const ProfileScreenComponent: React.FC<ProfileScreenProps> = ({
           >
             {!isWorkoutActive && (
               <View style={styles.sectionGap}>
-                <ProfileHero user={data.user} isOwner={true}
-                  streak={FEATURES.level ? currentStreak : undefined}
-                  currentTeam={data.currentTeam ? {
-                    id: data.currentTeam.id,
-                    name: data.currentTeam.name,
-                    avatarUrl: null,
-                  } : null}
-                  onTeamPress={handleTeamPress}
-                  onEditPress={handleEditPress}
-                  onSettingsPress={undefined} />
-              </View>
-            )}
-
-            {!isWorkoutActive && (
-              <View style={styles.sectionGap}>
-                <NotificationBadge onPress={() => setShowNotificationModal(true)} />
-              </View>
-            )}
-
-            {!isWorkoutActive && FEATURES.activitySelector && (
-              <View style={styles.sectionGap}>
-                <ActivityCategoryBar
-                  gridPosition={gridPosition}
-                  onActivitySelect={handleActivitySelect}
-                  isWorkoutActive={false}
-                />
+                <ProfileHero user={data.user} onEditPress={handleEditPress} />
               </View>
             )}
 
@@ -295,7 +175,7 @@ const ProfileScreenComponent: React.FC<ProfileScreenProps> = ({
           </OstrichRefreshScrollView>
         </View>
 
-      {/* Permission modal — shown when user taps "enable location" for cardio */}
+      {/* Permission modal — shown when user taps "enable location" */}
       {showPermissionModal && (
         <PermissionRequestModal
           visible={true}
@@ -310,7 +190,6 @@ const ProfileScreenComponent: React.FC<ProfileScreenProps> = ({
         />
       )}
 
-      <NotificationModal visible={showNotificationModal} onClose={() => setShowNotificationModal(false)} />
       </TexturedBackground>
     </SafeAreaView>
   );
