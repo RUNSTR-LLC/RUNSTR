@@ -55,7 +55,7 @@ check(keys.includes('Share runs with your AI agent'), 'Settings offers "Share ru
 const agent = state.slice(state.indexOf('handleCopyAgentPrompt'), state.indexOf('return {'));
 check(agent.includes('userNpub') && !agent.includes('userNsec'), 'agent prompt copies the npub, never the nsec');
 check(readFileSync('src/components/settings/NostrPostingSection.tsx', 'utf8').includes('Publish runs to Nostr'), 'publish toggle says "Nostr"');
-check(/SecureNsecStorage\.clearNsec\(\);\s*await AsyncStorage\.clear\(\)/.test(state), 'Delete Account removes the nsec from secure storage');
+check(/SecureNsecStorage\.clearNsec\(\);[\s\S]{0,300}AsyncStorage\.multiRemove/.test(state), 'Delete Account removes the nsec from secure storage, then local data');
 
 console.log(failures === 0 ? '\nAll checks passed.' : `\n${failures} check(s) failed.`);
 process.exit(failures === 0 ? 0 : 1);

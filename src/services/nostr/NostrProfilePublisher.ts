@@ -3,14 +3,13 @@
  * Handles profile updates, validation, and relay publishing
  */
 
-import { NDKEvent, NDKPrivateKeySigner } from '@nostr-dev-kit/ndk';
-import { nostrRelayManager } from './NostrRelayManager';
-import { NostrProtocolHandler } from './NostrProtocolHandler';
+import { NDKEvent } from '@nostr-dev-kit/ndk';
+import { GlobalNDKService } from './GlobalNDKService';
+import { UnifiedSigningService } from '../auth/UnifiedSigningService';
 import { nostrProfileService } from './NostrProfileService';
-import { DirectNostrProfileService } from '../user/directNostrProfileService';
-import { getNsec, getNpub } from '../../utils/nostrAuth';
+import { getNpub } from '../../utils/nostrAuth';
 import { npubToHex } from '../../utils/ndkConversion';
-import type { Event } from 'nostr-tools';
+import { withTimeout, NOSTR_TIMEOUTS } from '../../utils/nostrTimeout';
 import unifiedCache from '../cache/UnifiedNostrCache';
 import { CacheKeys, CacheTTL } from '../../constants/cacheTTL';
 
@@ -40,11 +39,8 @@ interface ValidationResult {
 
 export class NostrProfilePublisher {
   private static instance: NostrProfilePublisher;
-  private protocolHandler: NostrProtocolHandler;
 
-  private constructor() {
-    this.protocolHandler = new NostrProtocolHandler();
-  }
+  private constructor() {}
 
   static getInstance(): NostrProfilePublisher {
     if (!NostrProfilePublisher.instance) {
@@ -54,76 +50,55 @@ export class NostrProfilePublisher {
   }
 
   /**
-   * Publish profile update to Nostr relays
+   * Publish profile update to Nostr relays. Signs with whichever signer the
+   * user has (nsec or Amber) and publishes through the shared NDK instance.
    */
   async publishProfileUpdate(
     profile: EditableProfile
   ): Promise<ProfilePublishResult> {
     try {
-      console.log('📝 NostrProfilePublisher: Starting profile update...');
-
-      // Validate profile data
       const validation = this.validateProfileData(profile);
       if (!validation.isValid) {
-        return {
-          success: false,
-          error: validation.errors.join(', '),
-        };
+        return { success: false, error: validation.errors.join(', ') };
       }
 
-      // Get user's private key
-      const nsec = await getNsec();
-      if (!nsec) {
-        return {
-          success: false,
-          error: 'No authentication found. Please login again.',
-        };
+      const signer = await UnifiedSigningService.getInstance().getSigner();
+      if (!signer) {
+        return { success: false, error: 'No signing key found. Please sign in again.' };
       }
 
-      // Create and sign kind 0 event
-      const event = await this.createKind0Event(profile, nsec);
-      if (!event) {
-        return {
-          success: false,
-          error: 'Failed to create profile event',
-        };
-      }
+      const ndk = await GlobalNDKService.getInstance();
+      const event = new NDKEvent(ndk);
+      event.kind = 0;
+      event.content = JSON.stringify(this.buildMetadata(profile));
+      event.tags = [];
+      event.created_at = Math.floor(Date.now() / 1000);
 
-      console.log('📮 Publishing profile event:', event.id);
-
-      // Publish to relays
-      const publishResult = await nostrRelayManager.publishEvent(event);
-
-      if (publishResult.successful.length === 0) {
-        return {
-          success: false,
-          error: 'Failed to publish to any relays',
-          failedRelays: publishResult.failed,
-        };
-      }
-
-      // Update cache to trigger UI refresh immediately
-      await this.updateProfileCache(profile, nsec);
-
-      console.log(
-        `✅ Profile published to ${publishResult.successful.length} relays`
+      const isAmber = (await UnifiedSigningService.getInstance().getAuthMethod()) === 'amber';
+      await withTimeout(
+        event.sign(signer),
+        isAmber ? NOSTR_TIMEOUTS.SIGN_AMBER : NOSTR_TIMEOUTS.SIGN,
+        'Profile signing'
       );
+      await GlobalNDKService.waitForMinimumConnection(1, 5000);
+      const relays = await withTimeout(
+        event.publish(),
+        NOSTR_TIMEOUTS.PUBLISH,
+        'Profile publishing'
+      );
+      const relayCount = relays?.size ?? 0;
+      if (relayCount === 0) {
+        return { success: false, error: 'Failed to publish to any relays' };
+      }
 
-      return {
-        success: true,
-        eventId: event.id,
-        publishedToRelays: publishResult.successful.length,
-        failedRelays: publishResult.failed,
-      };
+      await this.updateProfileCache(profile);
+      console.log(`✅ Profile published to ${relayCount} relays`);
+      return { success: true, eventId: event.id, publishedToRelays: relayCount };
     } catch (error) {
-      console.error(
-        '❌ NostrProfilePublisher: Error publishing profile:',
-        error
-      );
+      console.error('❌ NostrProfilePublisher: Error publishing profile:', error);
       return {
         success: false,
-        error:
-          error instanceof Error ? error.message : 'Failed to publish profile',
+        error: error instanceof Error ? error.message : 'Failed to publish profile',
       };
     }
   }
@@ -189,99 +164,28 @@ export class NostrProfilePublisher {
     };
   }
 
-  /**
-   * Create kind 0 metadata event
-   */
-  private async createKind0Event(
-    profile: EditableProfile,
-    nsec: string
-  ): Promise<Event | null> {
-    try {
-      // Build metadata content
-      const metadata: any = {};
-
-      // Use display_name or name for the name field
-      if (profile.display_name) {
-        metadata.name = profile.display_name;
-      } else if (profile.name) {
-        metadata.name = profile.name;
-      }
-
-      // Add display_name separately if different from name
-      if (
-        profile.display_name &&
-        profile.name &&
-        profile.display_name !== profile.name
-      ) {
-        metadata.display_name = profile.display_name;
-      }
-
-      if (profile.about) metadata.about = profile.about;
-      if (profile.picture) metadata.picture = profile.picture;
-      if (profile.banner) metadata.banner = profile.banner;
-      if (profile.lud16) metadata.lud16 = profile.lud16;
-      if (profile.website) metadata.website = profile.website;
-      if (profile.nip05) metadata.nip05 = profile.nip05;
-
-      const content = JSON.stringify(metadata);
-
-      // Create event template
-      const eventTemplate = {
-        kind: 0,
-        content,
-        tags: [],
-        created_at: Math.floor(Date.now() / 1000),
-      };
-
-      // Use UnifiedSigningService to get the appropriate signer (supports both nsec and Amber)
-      const { UnifiedSigningService } = await import(
-        '../auth/UnifiedSigningService'
-      );
-      const signingService = UnifiedSigningService.getInstance();
-      const signer = await signingService.getSigner();
-
-      if (!signer) {
-        console.error('No signer available for profile update');
-        return null;
-      }
-
-      // Sign the event using NostrProtocolHandler's signEventWithSigner method
-      const signedEvent = await this.protocolHandler.signEventWithSigner(
-        eventTemplate,
-        signer
-      );
-
-      console.log('✅ Created and signed kind 0 event:', signedEvent.id);
-      return signedEvent;
-    } catch (error) {
-      console.error('Error creating kind 0 event:', error);
-      return null;
+  /** kind 0 content: name falls back to display_name */
+  private buildMetadata(profile: EditableProfile): Record<string, string> {
+    const metadata: Record<string, string> = {};
+    const name = profile.display_name || profile.name;
+    if (name) metadata.name = name;
+    if (profile.display_name && profile.name && profile.display_name !== profile.name) {
+      metadata.display_name = profile.display_name;
     }
-  }
-
-  /**
-   * Upload image to a hosting service (placeholder - can be implemented later)
-   */
-  async uploadImage(imageUri: string): Promise<string | null> {
-    try {
-      // TODO: Implement image upload to nostr.build or similar service
-      // For now, users must provide direct URLs
-      console.log('Image upload not yet implemented. Please use direct URLs.');
-      return null;
-    } catch (error) {
-      console.error('Error uploading image:', error);
-      return null;
-    }
+    if (profile.about) metadata.about = profile.about;
+    if (profile.picture) metadata.picture = profile.picture;
+    if (profile.banner) metadata.banner = profile.banner;
+    if (profile.lud16) metadata.lud16 = profile.lud16;
+    if (profile.website) metadata.website = profile.website;
+    if (profile.nip05) metadata.nip05 = profile.nip05;
+    return metadata;
   }
 
   /**
    * Update profile cache after successful publish
    * This triggers cache subscribers to update UI immediately
    */
-  private async updateProfileCache(
-    profile: EditableProfile,
-    nsec: string
-  ): Promise<void> {
+  private async updateProfileCache(profile: EditableProfile): Promise<void> {
     try {
       const npub = await getNpub();
       const hexPubkey = npubToHex(npub || '');

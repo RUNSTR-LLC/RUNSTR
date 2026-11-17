@@ -817,7 +817,10 @@ export class LocalWorkoutStorageService {
    */
   async deleteWorkout(workoutId: string): Promise<void> {
     try {
-      const workouts = await this.getAllWorkouts();
+      // A failed read returns [] — persisting the filter of that would wipe
+      // the whole history, so bail instead.
+      const { workouts, ok } = await this.readAllWorkoutsChecked();
+      if (!ok) throw new Error('Could not read history; nothing was deleted');
       const filteredWorkouts = workouts.filter((w) => w.id !== workoutId);
 
       await this.persistWorkouts(filteredWorkouts);
@@ -827,6 +830,14 @@ export class LocalWorkoutStorageService {
       console.error('❌ Failed to delete workout:', error);
       throw error;
     }
+  }
+
+  /**
+   * Drop the in-memory copy after local_workouts was replaced underneath us
+   * (sign-out stash / sign-in claim in accountRunStash.ts).
+   */
+  resetCache(): void {
+    this.invalidateCache();
   }
 
   /**
@@ -943,6 +954,15 @@ export class LocalWorkoutStorageService {
       console.error('❌ Failed to save imported Nostr workout:', error);
       throw error;
     }
+  }
+
+  /**
+   * Save a run from the encrypted backup exactly as it was recorded — same
+   * id, source, and publish state — so a run that was never published does
+   * not come back marked "On Nostr". The caller dedups.
+   */
+  async saveRestoredWorkout(workout: LocalWorkout): Promise<void> {
+    await this.saveWorkout({ ...workout, syncedToNostr: !!workout.syncedToNostr });
   }
 
   /**

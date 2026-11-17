@@ -433,21 +433,10 @@ export class RestoreService {
 
       // Save the workout
       try {
-        await workoutService.saveImportedNostrWorkout({
-          id: workout.nostrEventId || workout.id,
-          type: workout.type,
-          startTime: workout.startTime,
-          endTime: workout.endTime,
-          duration: workout.duration,
-          distance: workout.distance,
-          calories: workout.calories,
-          reps: workout.reps,
-          sets: workout.sets,
-          notes: workout.notes,
-          elevation: workout.elevation,
-          pace: workout.pace,
-          splits: workout.splits,
-        });
+        // Keep the backed-up record as-is: routing it through the 1301 import
+        // path marked every restored run "On Nostr", published or not
+        await workoutService.saveRestoredWorkout(workout);
+        existingIds.add(workout.id);
         imported++;
       } catch (error) {
         console.warn('[RestoreService] Failed to import workout:', error);

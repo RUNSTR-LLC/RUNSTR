@@ -28,6 +28,7 @@ import TTSAnnouncementService from '../../services/activity/TTSAnnouncementServi
 import { activityMetricsService } from '../../services/activity/ActivityMetricsService';
 import { publishRun } from '../../services/nostr/publishRun';
 import WorkoutStatusTracker from '../../services/fitness/WorkoutStatusTracker';
+import LocalWorkoutStorageService from '../../services/fitness/LocalWorkoutStorageService';
 import { NostrPostingPreferencesService } from '../../services/activity/NostrPostingPreferencesService';
 import { PostingErrorBoundary } from '../ui/PostingErrorBoundary';
 import { AnimatedNumber } from '../ui/AnimatedNumber';
@@ -89,14 +90,18 @@ export const WorkoutSummaryModal: React.FC<WorkoutSummaryProps> = ({
 
   const createPublishableWorkout = async (workoutId: string): Promise<PublishableWorkout> => {
     const npub = await AsyncStorage.getItem('@runstr:npub');
+    // Use the saved run's times: recomputing from Date.now() moved the start
+    // time forward on every retry, so a later retry published a different run
+    const stored = await LocalWorkoutStorageService.getWorkoutById(workoutId);
     return {
       // The stable local id keeps the 1301 d-tag deterministic, so a retry
       // replaces the event instead of publishing a duplicate.
       id: workoutId,
       userId: npub || 'unknown',
       type: workout.type,
-      startTime: new Date(Date.now() - workout.duration * 1000).toISOString(),
-      endTime: new Date().toISOString(),
+      startTime:
+        stored?.startTime ?? new Date(Date.now() - workout.duration * 1000).toISOString(),
+      endTime: stored?.endTime ?? new Date().toISOString(),
       duration: workout.duration,
       distance: workout.distance,
       calories: workout.calories,

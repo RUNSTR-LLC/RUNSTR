@@ -263,10 +263,26 @@ export function useSettingsState(onSignOut?: () => void | Promise<void>) {
                 style: 'destructive',
                 onPress: async () => {
                   hideAlert();
-                  await SecureNsecStorage.clearNsec();
-                  await AsyncStorage.clear();
-                  await SecureStore.deleteItemAsync('nwc_string');
-                  RNRestart.restart();
+                  try {
+                    await SecureNsecStorage.clearNsec();
+                    // Wipe this account; runs other accounts left on this
+                    // phone at sign-out (local_workouts:<pubkey>) stay theirs
+                    const keys = await AsyncStorage.getAllKeys();
+                    await AsyncStorage.multiRemove(
+                      keys.filter((k) => !k.startsWith('local_workouts:'))
+                    );
+                    await SecureStore.deleteItemAsync('nwc_string').catch(() => {});
+                    RNRestart.restart();
+                  } catch (error) {
+                    console.error('[Settings] Delete account failed:', error);
+                    setTimeout(() => {
+                      showAlert(
+                        'Couldn’t delete account',
+                        'Something went wrong. Please try again.',
+                        [{ text: 'OK' }]
+                      );
+                    }, 100);
+                  }
                 },
               },
             ]);

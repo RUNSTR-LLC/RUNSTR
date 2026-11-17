@@ -9,6 +9,15 @@ import { NostrAuthProvider } from './providers/nostrAuthProvider';
 import { AmberAuthProvider } from './providers/amberAuthProvider';
 import { storeAuthenticationData } from '../../utils/nostrAuth';
 import { DirectNostrProfileService } from '../user/directNostrProfileService';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import {
+  stashRunsForSignOut,
+  claimStashedRuns,
+} from '../fitness/accountRunStash';
+
+const HEX_PUBKEY_KEY = '@runstr:hex_pubkey';
+const claimRunsForSignedInUser = async () =>
+  claimStashedRuns(await AsyncStorage.getItem(HEX_PUBKEY_KEY));
 
 export class AuthService {
   /**
@@ -17,6 +26,10 @@ export class AuthService {
   static async signOut(): Promise<ApiResponse> {
     try {
       console.log('🔓 AuthService: Starting sign out with full cleanup...');
+
+      // Keep this account's runs on the phone, keyed by its pubkey, so the
+      // next account starts empty and this one gets them back on sign-in
+      await stashRunsForSignOut(await AsyncStorage.getItem(HEX_PUBKEY_KEY));
 
       // Clear Nostr keys and data
       await clearNostrStorage();
@@ -30,11 +43,6 @@ export class AuthService {
       } catch (err) {
         console.warn('⚠️ AuthService: Failed to clear GlobalNDK signer:', err);
       }
-
-      // Import AsyncStorage for wallet cleanup
-      const AsyncStorage = (
-        await import('@react-native-async-storage/async-storage')
-      ).default;
 
       // Clear wallet-related data and onboarding flags to prevent cross-user contamination
       await AsyncStorage.multiRemove([
@@ -171,7 +179,7 @@ export class AuthService {
       }
 
       console.log('AuthService: Nostr authentication successful');
-
+      await claimRunsForSignedInUser();
       return result;
     } catch (error) {
       console.error('AuthService: Nostr authentication error:', error);
@@ -208,6 +216,7 @@ export class AuthService {
       }
 
       console.log('AuthService: Amber authentication successful');
+      await claimRunsForSignedInUser();
       return result;
     } catch (error) {
       console.error('AuthService: Amber authentication error:', error);
