@@ -308,16 +308,16 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         await appCache.set('current_user_profile', user, 5 * 60 * 1000);
         NostrFetchLogger.end('AuthContext.loadUserProfile', 1, 'from Nostr');
       } else {
-        setIsAuthenticated(false);
-        setCurrentUser(null);
+        // No kind 0 came back (relays still connecting, timeout, or the
+        // account never published one). The keys are still on the phone, so
+        // stay signed in with the fallback user; a later refresh upgrades it.
+        // Signing out here sent people to Login after a long time away.
         NostrFetchLogger.end('AuthContext.loadUserProfile', 0, 'no profile found');
       }
     } catch (error) {
+      // Same: a failed profile fetch is not a reason to leave the app
       NostrFetchLogger.error('AuthContext.loadUserProfile', error as Error);
-      console.error('❌ Error loading profile:', error);
-      setInitError(
-        error instanceof Error ? error.message : 'Failed to load profile'
-      );
+      console.warn('⚠️ Error loading profile, keeping current user:', error);
     }
   };
 

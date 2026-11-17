@@ -7,7 +7,7 @@
 import { getNpubFromStorage } from '../../utils/nostr';
 import { nostrProfileService } from '../nostr/NostrProfileService';
 import { UnifiedNostrCache } from '../cache/UnifiedNostrCache';
-import { CacheKeys } from '../../constants/cacheTTL';
+import { CacheTTL, CacheKeys } from '../../constants/cacheTTL';
 import { nip19 } from 'nostr-tools';
 import type { UserWithWallet } from '../../types';
 
@@ -192,7 +192,7 @@ export class DirectNostrProfileService {
           .set(
             CacheKeys.USER_PROFILE(hexPubkey as string),
             directUser,
-            24 * 60 * 60 * 1000, // 24hr TTL
+            CacheTTL.USER_PROFILE,
             true // persist to AsyncStorage
           )
           .then(() => {
