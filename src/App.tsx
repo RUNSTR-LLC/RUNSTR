@@ -21,8 +21,6 @@ import { StatusBar, View, Text, StyleSheet, TouchableOpacity, AppState, Platform
 LogBox.ignoreLogs([
   // This warning appears intermittently from third-party libraries
   'Text strings must be rendered within a <Text> component',
-  // Expected on iOS Simulator (no pedometer hardware) or when HealthKit permissions not granted
-  '[DailyStepCounterService] Steps unavailable',
   // Normal Nostr relay responses during connection/query - not errors
   'Error from relay',
 ]);

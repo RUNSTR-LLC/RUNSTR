@@ -5,8 +5,6 @@
  * deleted features (social, teams, wallet, rewards, ...) are gone with them.
  */
 export const FEATURES = {
-  /** Steps hero on the stats card. */
-  stepTracking: false,
   /** Non-running workouts in history and records. Health imports still collect them. */
   nonRunningHistory: false,
 } as const;

@@ -45,8 +45,8 @@ for (const needle of [
   check(!all.includes(needle), `no reference to ${needle} in src`);
 }
 
-// Flags: only the two still read
-check(JSON.stringify(Object.keys(FEATURES).sort()) === JSON.stringify(['nonRunningHistory', 'stepTracking']), 'features.ts holds only live flags');
+// Flags: only the one still read
+check(JSON.stringify(Object.keys(FEATURES).sort()) === JSON.stringify(['nonRunningHistory']), 'features.ts holds only live flags');
 
 // Settings: Nostr is named, agent sharing uses the npub only
 const keys = readFileSync('src/components/settings/PasswordSection.tsx', 'utf8');

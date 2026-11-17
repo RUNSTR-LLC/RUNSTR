@@ -25,7 +25,7 @@ RUNSTR used to be a three-pillar cardio/social/rewards app. **Phase 1** (2026-09
 - **Personal records are local.** `StatsCard` computes PRs from `LocalWorkoutStorageService`.
 - **Encrypted backup is chunked.** Workouts live in kind 30078 chunk events (`d` = `runstr-workout-backup:w0…wN`, 100 per chunk oldest-first, halved if over ~49KB compressed — the NIP-44 limit after base64). The main event (`d` = `runstr-workout-backup`) holds habits/journal/preferences and a `['chunks', N]` tag. Chunks publish before the main event; unchanged chunks are skipped, with a full re-send weekly. Logic in `src/services/backup/backupChunks.ts`. v1 single-event backups still restore. Amber users get 2 prompts per changed chunk.
 - **Restore + backfill on login.** `RestoreService.restoreInBackground()` runs once per install (`@runstr:auto_restore_done`) for nsec users, then `Nostr1301ImportService.backfillInBackground()` merges relay 1301s (throttled to once per 6 hours, `@runstr:last_1301_backfill`). Both are additive only and never block the UI. Amber users restore from Settings → Import (decrypt opens an Amber prompt).
-- **Flags.** `src/config/features.ts` holds only the two flags live code reads: `stepTracking` and `nonRunningHistory` (both `false`). Do not add flags for deleted features.
+- **Flags.** `src/config/features.ts` holds only `nonRunningHistory` (`false`). Step tracking was deleted 2026-11-17 (`expo-android-pedometer` is still in `package.json`/`app.json` until the next native rebuild). Do not add flags for deleted features.
 - **Verification.** `scripts/verify/verify-fully-nostr.ts`, `verify-backup-chunks.ts`, and `verify-basics-surface.ts` (static). A simulator run confirming zero `supabase.co` requests and a real fresh-install restore has not been done yet.
 - **Finding dead code.** `python3 scripts/diagnostics/find-unreachable-files.py` lists src files unreachable from `index.js` (follows static imports, `require()`, and dynamic `import()`). `src/config/encryptedSecrets.ts` is unreachable but gitignored — leave it.
 
@@ -47,7 +47,7 @@ The rule: if it is not sign-in, tracking, history, or agent sharing, it does not
 Ask before deleting; each needs a small refactor, not just a file removal.
 
 - `HabitTrackerService` / `JournalService`: only used so the 30078 backup round-trips habits and journal entries from older installs. `ExportDataModal` still lists them when present.
-- `Nuclear1301Service`, `DailyStepCounterService` / `NativeStepCounterService` (behind `stepTracking`): reachable, not audited.
+- `Nuclear1301Service`: reachable, not audited.
 - `nostr-tools` is still imported for `nip19` in `utils/nostr.ts`, `NostrProfileService`, and `directNostrProfileService`.
 - Oversized files (`SimpleRunTracker`, `LocalWorkoutStorageService`, `healthKitService`, and ~20 others per `scripts/verify/audit-file-size-limit.ts`): over the 500-line limit; split only when a bug forces it.
 - `src/services/auth/__tests__/UnifiedSigningService.test.ts`: 7 tests fail (not touched by Phase 3).
@@ -165,7 +165,7 @@ Full testing protocol and troubleshooting: [docs/DEV_WORKFLOW.md](./docs/DEV_WOR
 
 ## Reachability Check (do this BEFORE editing)
 
-Names lie. This codebase accumulated multiple plausible owners for the same feature (Phase 2 deleted most duplicates, but not all — e.g. `DailyStepCounterService` and `NativeStepCounterService` both touch step data). Editing the wrong file looks like progress and ships nothing. `python3 scripts/diagnostics/find-unreachable-files.py` lists files nothing loads.
+Names lie. This codebase accumulated multiple plausible owners for the same feature (Phase 2 and 3 deleted most duplicates, but not all). Editing the wrong file looks like progress and ships nothing. `python3 scripts/diagnostics/find-unreachable-files.py` lists files nothing loads.
 
 Before investing in a fix or feature in a file:
 
