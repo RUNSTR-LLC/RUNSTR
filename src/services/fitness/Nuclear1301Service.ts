@@ -1,6 +1,6 @@
 /**
  * Nuclear1301Service - Proven 1301 Workout Event Discovery
- * Extracted from workoutMergeService.ts - uses GlobalNDKService for shared relay connections
+ * Uses GlobalNDKService for shared relay connections
  * 3-second timeout, nuclear approach with zero validation for maximum reliability
  */
 

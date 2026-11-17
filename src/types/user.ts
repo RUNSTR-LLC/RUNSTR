@@ -98,3 +98,10 @@ export interface UserWithWallet extends User {
   walletBalance?: number;
   hasWalletCredentials?: boolean;
 }
+
+export interface ApiResponse<T = any> {
+  success: boolean;
+  data?: T;
+  error?: string;
+  message?: string;
+}

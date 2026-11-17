@@ -16,7 +16,6 @@ import RNRestart from 'react-native-restart';
 import { AuthService } from '../services/auth/authService';
 import Toast from 'react-native-toast-message';
 import { useUnitPreference } from '../hooks/useUnitPreference';
-import { useTranslation } from 'react-i18next';
 import { AutoBackupService } from '../services/backup/AutoBackupService';
 import { BackupService } from '../services/backup/BackupService';
 import { SecureNsecStorage } from '../services/auth/SecureNsecStorage';
@@ -34,7 +33,6 @@ export interface AlertState {
 
 export function useSettingsState(onSignOut?: () => void | Promise<void>) {
   const navigation = useNavigation<any>();
-  const { t } = useTranslation('settings');
   const { isMetric, setUnitSystem } = useUnitPreference();
   const [isDeletingAccount, setIsDeletingAccount] = useState(false);
   const [userNsec, setUserNsec] = useState<string | null>(null);

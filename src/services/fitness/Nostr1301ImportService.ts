@@ -144,18 +144,6 @@ export class Nostr1301ImportService {
       ).toISOString();
       const activityTypes = Array.from(activityTypesSet);
 
-      // Mark import as completed
-      await LocalWorkoutStorageService.markNostrImportCompleted({
-        totalImported: importedCount,
-        oldestDate,
-        newestDate,
-        activityTypes,
-      });
-
-      // Historical imports are saved to local storage only — NOT submitted to
-      // Supabase competitions.  Queuing old workouts would pollute the daily
-      // leaderboard because workout_submissions.created_at defaults to NOW().
-
       console.log(
         `✅ Import complete: ${importedCount} workouts imported (${
           oldestDate.split('T')[0]
@@ -323,28 +311,6 @@ export class Nostr1301ImportService {
     };
 
     return typeMap[normalized] || 'other';
-  }
-
-  /**
-   * Check if import has been completed
-   */
-  async hasImported(): Promise<boolean> {
-    return LocalWorkoutStorageService.hasImportedNostrWorkouts();
-  }
-
-  /**
-   * Get import statistics
-   */
-  async getImportStats() {
-    return LocalWorkoutStorageService.getNostrImportStats();
-  }
-
-  /**
-   * Reset import (allows re-import)
-   * Note: Does not delete imported workouts, only resets the flag
-   */
-  async resetImport(): Promise<void> {
-    await LocalWorkoutStorageService.resetNostrImport();
   }
 }
 

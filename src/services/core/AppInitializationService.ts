@@ -5,7 +5,6 @@
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { NostrInitializationService } from '../nostr/NostrInitializationService';
 import { getUserNostrIdentifiers } from '../../utils/nostr';
 
 class AppInitializationService {
@@ -58,10 +57,7 @@ class AppInitializationService {
         }
 
         const { GlobalNDKService } = await import('../nostr/GlobalNDKService');
-        const initService = NostrInitializationService.getInstance();
-
         try {
-          await initService.connectToRelays();
           await GlobalNDKService.getInstance();
           // Wait for minimum 2 relays (fast threshold)
           await GlobalNDKService.waitForMinimumConnection(2, 2000);

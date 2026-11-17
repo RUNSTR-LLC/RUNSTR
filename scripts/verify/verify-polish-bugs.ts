@@ -9,7 +9,7 @@
  *
  * Run: npx tsx scripts/verify/verify-polish-bugs.ts
  */
-import { readFileSync } from 'fs';
+import { readFileSync, existsSync } from 'fs';
 
 let failures = 0;
 const check = (ok: boolean, label: string) => {
@@ -49,6 +49,17 @@ const delAcct = settings.slice(settings.indexOf('handleDeleteAccount'), settings
 check(delAcct.includes('try {') && delAcct.includes('catch (error)'), '6. Delete Account catches errors');
 check(!delAcct.includes('AsyncStorage.clear()') && delAcct.includes("!k.startsWith('local_workouts:')"),
   "6. Delete Account keeps other accounts' stashed runs");
+
+// Dead-code pass: these stay deleted
+for (const f of [
+  'src/services/nostr/NostrRelayManager.ts', 'src/services/nostr/NostrProtocolHandler.ts',
+  'src/services/nostr/NostrInitializationService.ts', 'src/services/cache/WorkoutCacheService.ts',
+  'src/services/fitness/workoutMergeService.ts', 'src/constants/featureFlags.ts',
+  'src/types/team.ts', 'src/types/club.ts', 'src/types/bitcoin.ts', 'src/types/notifications.ts',
+  'src/i18n/locales/de', 'src/i18n/locales/es', 'src/components/ui/Button.tsx', 'src/utils/storage.ts',
+]) check(!existsSync(f), `${f} is gone`);
+const backup = read('src/services/backup/BackupService.ts');
+check(!/selectedCharity|ppqApiKey|ppqCreditId/.test(backup), 'backup no longer carries charity/PPQ fields');
 
 console.log(failures === 0 ? '\nAll checks passed.' : `\n${failures} check(s) failed.`);
 process.exit(failures === 0 ? 0 : 1);

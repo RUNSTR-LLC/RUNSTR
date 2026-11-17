@@ -37,21 +37,19 @@ The rule: if it is not sign-in, tracking, history, or agent sharing, it does not
 - **No Supabase call on login.** `VerificationService` (written to send the npub to a Supabase edge function on every login; nothing read its result) is deleted.
 - **`NavigationDataContext` is tiny.** It mirrors `AuthContext.currentUser` and refreshes the kind 0 profile. No team or wallet data.
 - **Startup.** `AppInitializationService` connects relays and warms the profile; nothing else.
+- **Sign-out keeps runs per account (2026-11-17).** `accountRunStash.ts` moves `local_workouts` to `local_workouts:<hex pubkey>` and resets the restore/backfill flags; signing back in with that key brings the runs back. Delete Account leaves other accounts' stashes alone. Cleanup pass removed the `NostrRelayManager` stack, the prefetch chain (`workoutMergeService`, `WorkoutCacheService`), dead types, unused i18n, and ~55 stale verify scripts (`scripts/verify/verify-polish-bugs.ts`).
 - **AI agent sharing.** Settings > Nostr Keys > "Share runs with your AI agent" copies a prompt with the user's **npub**. The agent uses the `runstr-fitness` skill (`.claude/skills/runstr-fitness/SKILL.md`) to read public 1301 notes. The nsec is never part of this flow.
-- **Settings copy.** Sections are Fitness Tracking, Nostr (auto-publish), Data & Backup, Nostr Keys (back up nsec, copy npub, agent), Support & Legal (Help, Privacy Policy), account actions. The app is English-only (`lng: 'en'`); the language picker and Contact Support form were removed in the 2026-11-16 polish pass (`scripts/verify/verify-polish-pass.ts`).
+- **Settings copy.** Sections are Fitness Tracking, Nostr (auto-publish), Data & Backup, Nostr Keys (back up nsec, copy npub, agent), Support & Legal (Help, Privacy Policy), account actions. The app is English-only (`lng: 'en'`, `settings` and `profile` namespaces only); the language picker and Contact Support form were removed in the 2026-11-16 polish pass (`scripts/verify/verify-polish-pass.ts`).
 - **Delete Account** now clears the nsec from SecureStore (`SecureNsecStorage.clearNsec()`) before wiping AsyncStorage.
 
 ### Known leftovers (loaded, but worth cutting next)
 
 Ask before deleting; each needs a small refactor, not just a file removal.
 
-- `NostrRelayManager` (and whatever only it imports): kept alive only by `NostrProfilePublisher`. Should move to `GlobalNDKService`.
 - `HabitTrackerService` / `JournalService`: only used so the 30078 backup round-trips habits and journal entries from older installs. `ExportDataModal` still lists them when present.
-- `workoutMergeService` (1,173 lines) and `constants/featureFlags.ts`, `Nuclear1301Service`, `DailyStepCounterService` / `NativeStepCounterService`: reachable, not audited.
-- `types/team.ts`, `club.ts`, `bitcoin.ts`, `notifications.ts`: types for deleted features, still re-exported from `types/index.ts`.
-- `src/i18n/locales/*`: many keys for deleted screens. `de/` and `es/` are no longer loaded.
-- `scripts/verify/`: ~80 scripts, most for deleted features.
-- Oversized files (`SimpleRunTracker`, `LocalWorkoutStorageService`, `healthKitService`, `WorkoutDetailModal`): over the 500-line limit; split only when a bug forces it.
+- `Nuclear1301Service`, `DailyStepCounterService` / `NativeStepCounterService` (behind `stepTracking`): reachable, not audited.
+- `nostr-tools` is still imported for `nip19` in `utils/nostr.ts`, `NostrProfileService`, and `directNostrProfileService`.
+- Oversized files (`SimpleRunTracker`, `LocalWorkoutStorageService`, `healthKitService`, and ~20 others per `scripts/verify/audit-file-size-limit.ts`): over the 500-line limit; split only when a bug forces it.
 - `src/services/auth/__tests__/UnifiedSigningService.test.ts`: 7 tests fail (not touched by Phase 3).
 
 ## Deferred (not bugs)

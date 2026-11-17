@@ -525,33 +525,12 @@ export class RestoreService {
   }
 
   /**
-   * Import preferences (only if not already set)
+   * Import preferences (only if not already set). Older backups also carry
+   * charity and PPQ fields for features that no longer exist; they are ignored.
    */
-  private async importPreferences(
-    preferences: { unitSystem?: 'metric' | 'imperial'; selectedCharity?: string; ppqApiKey?: string; ppqCreditId?: string }
-  ): Promise<void> {
-    // Only import if user hasn't set their own preferences
-    const [existingUnitSystem, existingCharity, existingPpqApiKey, existingPpqCreditId] = await Promise.all([
-      AsyncStorage.getItem('@runstr:unit_system'),
-      AsyncStorage.getItem('@runstr:selected_charity'),
-      AsyncStorage.getItem('@runstr:ppq_api_key'),
-      AsyncStorage.getItem('@runstr:ppq_credit_id'),
-    ]);
-
-    if (!existingUnitSystem && preferences.unitSystem) {
+  private async importPreferences(preferences: { unitSystem?: 'metric' | 'imperial' }): Promise<void> {
+    if (preferences.unitSystem && !(await AsyncStorage.getItem('@runstr:unit_system'))) {
       await AsyncStorage.setItem('@runstr:unit_system', preferences.unitSystem);
-    }
-
-    if (!existingCharity && preferences.selectedCharity) {
-      await AsyncStorage.setItem('@runstr:selected_charity', preferences.selectedCharity);
-    }
-
-    if (!existingPpqApiKey && preferences.ppqApiKey) {
-      await AsyncStorage.setItem('@runstr:ppq_api_key', preferences.ppqApiKey);
-    }
-
-    if (!existingPpqCreditId && preferences.ppqCreditId) {
-      await AsyncStorage.setItem('@runstr:ppq_credit_id', preferences.ppqCreditId);
     }
   }
 }
