@@ -21,7 +21,7 @@ export const toastConfig = {
   // Success notification - Orange theme matching app style
   success: ({ text1, text2 }: ToastProps) => (
     <View style={styles.successToast}>
-      <Ionicons name="checkmark-circle" size={24} color="#FF9D42" />
+      <Ionicons name="checkmark-circle" size={24} color={theme.colors.orangeBright} />
       <View style={styles.textContainer}>
         <Text style={styles.title}>{text1}</Text>
         {text2 && <Text style={styles.subtitle}>{text2}</Text>}
@@ -44,7 +44,7 @@ export const toastConfig = {
 const baseToastStyle = {
   flexDirection: 'row' as const,
   alignItems: 'center' as const,
-  backgroundColor: '#1a1a1a',
+  backgroundColor: theme.colors.surface,
   borderRadius: 12,
   padding: 16,
   marginHorizontal: 16,
@@ -60,7 +60,7 @@ const styles = StyleSheet.create({
   successToast: {
     ...baseToastStyle,
     borderWidth: 1,
-    borderColor: '#FF9D42',
+    borderColor: theme.colors.orangeBright,
   },
   errorToast: {
     ...baseToastStyle,
@@ -77,7 +77,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   subtitle: {
-    color: '#888888',
+    color: theme.colors.textMuted,
     fontSize: 14,
     marginTop: 2,
   },

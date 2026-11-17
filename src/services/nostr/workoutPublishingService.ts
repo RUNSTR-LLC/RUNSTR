@@ -14,13 +14,8 @@
 
 import { GlobalNDKService } from './GlobalNDKService';
 import { NDKEvent } from '@nostr-dev-kit/ndk';
-import {
-  WorkoutCardGenerator,
-  type WorkoutCardOptions,
-} from './workoutCardGenerator';
 import type { Workout } from '../../types/workout';
 import type { NDKSigner } from '@nostr-dev-kit/ndk';
-import { ImageUploadService } from '../media/ImageUploadService';
 import { withTimeout, NOSTR_TIMEOUTS } from '../../utils/nostrTimeout';
 import Constants from 'expo-constants';
 // RewardDestinationService removed - reward routing now uses isPPQTeam() inline
@@ -77,27 +72,10 @@ export interface WorkoutPublishResult {
   rewardAmount?: number;
 }
 
-export interface SocialPostOptions {
-  customMessage?: string;
-  includeStats?: boolean;
-  includeMotivation?: boolean;
-  cardTemplate?: 'achievement' | 'progress' | 'minimal' | 'stats';
-  cardOptions?: WorkoutCardOptions;
-  includeCard?: boolean;
-  userAvatar?: string; // User's profile picture URL
-  userName?: string; // User's display name
-  cardImageUri?: string; // Pre-rendered card image URI (optional)
-}
-
 export class WorkoutPublishingService {
   private static instance: WorkoutPublishingService;
-  private cardGenerator: WorkoutCardGenerator;
-  private imageUploadService: ImageUploadService;
 
-  private constructor() {
-    this.cardGenerator = WorkoutCardGenerator.getInstance();
-    this.imageUploadService = ImageUploadService.getInstance();
-  }
+  private constructor() {}
 
   static getInstance(): WorkoutPublishingService {
     if (!WorkoutPublishingService.instance) {
@@ -108,13 +86,12 @@ export class WorkoutPublishingService {
 
   /**
    * Entry point for posting a workout to Nostr: always a kind 1301 workout
-   * note (native in Amethyst, POWR, Chachi). `options.format` is ignored.
+   * note (native in Amethyst, POWR, Chachi).
    */
   async postWorkout(
     workout: PublishableWorkout,
     signer: NDKSigner,
-    userId: string,
-    options: (SocialPostOptions & { format?: 'kind1' | 'kind1301' }) = {}
+    userId: string
   ): Promise<WorkoutPublishResult> {
     const eventId = await this.publishWorkout1301(workout, signer, userId);
     return { success: !!eventId, eventId: eventId || undefined };

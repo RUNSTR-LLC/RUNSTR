@@ -1,6 +1,6 @@
 /**
  * PrivacyPolicyScreen - Privacy policy and data handling information
- * Explains how RUNSTR handles user data in a Nostr-native context
+ * What RUNSTR keeps on the phone, what it publishes, what it never collects
  */
 
 import React from 'react';
@@ -31,139 +31,63 @@ const PolicySection: React.FC<PolicySectionProps> = ({ title, content }) => (
 export const PrivacyPolicyScreen: React.FC<{ navigation: any }> = ({
   navigation,
 }) => {
-  const lastUpdated = 'January 2025';
-  const version = '1.0';
+  const lastUpdated = 'November 2026';
+  const version = '2.0';
 
   const policySections = [
     {
-      title: '1. Information We Collect',
-      content: `RUNSTR operates on the Nostr protocol, which means most of your data is public by design. We collect:
+      title: '1. What stays on your phone',
+      content: `• Your runs: every run is saved on this phone first.
 
-• Nostr Public Data: Your profile (kind 0 events), workouts (kind 1301 events), team memberships, and competition entries are all public on the Nostr network.
+• Your nsec: your Nostr private key is kept in the phone's secure storage. RUNSTR never sends it anywhere.
 
-• Local Storage Only: Your nsec (private key) and app preferences are stored locally on your device - we never have access to these.
-
-• HealthKit Data (iOS): With your permission, we read workout data from Apple Health. This data is only used locally and shared to Nostr when you explicitly choose to post.
-
-• No Server Collection: RUNSTR has no backend servers collecting your data. All data lives on the decentralized Nostr network or your device.`,
+• Settings: your preferences stay on this phone.`,
     },
     {
-      title: '2. How We Use Information',
-      content: `Your information powers the RUNSTR experience:
+      title: '2. What is public',
+      content: `• Published runs: when a run is published, it becomes a public Nostr workout note (kind 1301). Anyone can read it, and other Nostr apps can show it.
 
-• Competition Scoring: Public workout events (kind 1301) are used to calculate leaderboards and determine winners.
+• Your profile: your Nostr name and picture are public, like on any Nostr app.
 
-• Team Membership: Your npub (public key) identifies you as a team member for competition eligibility.
+• Turning it off: Settings > Nostr > Publish runs to Nostr. Runs then stay on this phone until you publish them yourself.
 
-• Social Features: Posted workouts (kind 1) with achievement cards are shared publicly for community engagement.
-
-• Local Preferences: Settings stored on your device customize your app experience.
-
-• No Analytics: We don't use tracking pixels, analytics services, or collect usage statistics.`,
+• Deleting: a published note is copied by relays and cannot be reliably removed once it is out.`,
     },
     {
-      title: '3. Data Ownership & Control',
-      content: `You own your data on RUNSTR:
-
-• Your Identity: Your identity keys are yours alone. You can use them across compatible apps.
-
-• Data Portability: All your workouts, team memberships, and achievements can be accessed from compatible clients.
-
-• Local Deletion: You can clear local app data anytime through device settings.
-
-• Data Persistence: Published data cannot be deleted but can be superseded by newer entries.
-
-• Relay Choice: You control which servers store your data through your client settings.`,
+      title: '3. Encrypted backup',
+      content: `RUNSTR keeps a backup of your runs on Nostr relays. It is encrypted to your own key, so only someone with your nsec can read it. It lets you restore your runs on a new phone.`,
     },
     {
-      title: '4. Financial Privacy',
-      content: `RUNSTR handles rewards responsibly:
+      title: '4. No RUNSTR server',
+      content: `RUNSTR has no server and no account database. There are no analytics, ads, or tracking.
 
-• Non-Custodial: We never hold your funds. All sats remain in your control via NutZap eCash.
-
-• Lightning Privacy: Lightning Network transactions provide enhanced privacy.
-
-• Public Prizes: Competition winnings are announced publicly for transparency.
-
-• No Financial Data: We don't store credit cards, bank accounts, or payment methods.
-
-• eCash Privacy: NutZap provides additional privacy through eCash tokens.`,
+The app connects only to public Nostr relays (relay.damus.io, nos.lol, relay.primal.net) to publish runs, read your profile, and store the backup.`,
     },
     {
-      title: '5. Data Security',
-      content: `We protect your information through:
-
-• Local Encryption: Your nsec is encrypted in device storage using platform security features.
-
-• No Cloud Storage: Without servers, there's no central database to breach.
-
-• TLS Connections: All relay connections use encrypted protocols.
-
-• Open Source: Our code is auditable for security verification.
-
-• Key Management: We encourage best practices for nsec security and never ask for your private key outside the app.`,
+      title: '5. Apple Health and Health Connect',
+      content: `With your permission, RUNSTR reads workouts from Apple Health (iOS) or Health Connect (Android) and saves them on this phone. Nothing from them is published unless you publish the run.`,
     },
     {
-      title: '6. Third-Party Services',
-      content: `RUNSTR interacts with:
-
-• Nostr Relays: Public relays (Damus, Primal, nos.lol) store and distribute Nostr events.
-
-• Apple HealthKit: iOS fitness data access (read-only, with your permission).
-
-• CoinOS API: Lightning Network payments (no personal data shared).
-
-• No Ad Networks: We don't use advertising or marketing services.
-
-• No Analytics: We don't use Google Analytics, Firebase, or similar services.`,
+      title: '6. Location',
+      content: `RUNSTR uses GPS only while you are tracking a run, to measure distance and pace. The route stays on this phone. Published runs include distance, time, pace, splits, and elevation, but not the GPS route.`,
     },
     {
-      title: "7. Children's Privacy",
-      content: `RUNSTR is designed for users 13 and older:
-
-• Age Requirement: Users must be 13+ to use RUNSTR per Nostr community standards.
-
-• No Child-Specific Features: We don't knowingly collect data from children under 13.
-
-• Parental Controls: Parents should monitor their children's Nostr usage.`,
+      title: '7. AI agents',
+      content: `Sharing runs with an AI agent copies your npub, your public Nostr ID. The agent can read only the runs you have published. Your nsec is never part of this.`,
     },
     {
-      title: '8. Your Rights',
-      content: `You have complete control over your data:
-
-• Access: View all your public Nostr data through any compatible client.
-
-• Correction: Update your profile and data by publishing new Nostr events.
-
-• Portability: Export your nsec and use it with any Nostr application.
-
-• Local Deletion: Remove app data from your device at any time.
-
-• Relay Selection: Choose which relays store your events.`,
+      title: '8. Deleting your account',
+      content: `Settings > Delete Account removes your nsec and all RUNSTR data from this phone. Runs already published to Nostr stay public.`,
     },
     {
-      title: '9. Changes to This Policy',
-      content: `We may update this privacy policy:
-
-• Notification: Significant changes will be announced via in-app notifications.
-
-• Version History: Each update includes a version number and date.
-
-• User Consent: Continued use after changes indicates acceptance.
-
-• Transparency: All changes are documented in our open-source repository.`,
+      title: '9. Children',
+      content: `RUNSTR is meant for people 13 and older.`,
     },
     {
-      title: '10. Contact Information',
-      content: `For privacy concerns or questions:
+      title: '10. Changes and contact',
+      content: `Changes to this policy are listed with a new version and date above.
 
-• In-App Support: Use Help & Support > Contact Support
-
-• Nostr DM: Message our team npub (coming soon)
-
-• Community: Join RUNSTR discussions on Nostr
-
-• Open Source: File privacy issues on our GitHub repository`,
+RUNSTR is open source. Questions and issues: github.com/RUNSTR-LLC/RUNSTR`,
     },
   ];
 
@@ -188,9 +112,8 @@ export const PrivacyPolicyScreen: React.FC<{ navigation: any }> = ({
             Version {version} • Last Updated: {lastUpdated}
           </Text>
           <Text style={styles.headerCardText}>
-            RUNSTR is committed to protecting your privacy while delivering a
-            decentralized fitness experience. This policy explains how we handle
-            information in a Nostr-native, server-free environment.
+            This explains what RUNSTR keeps on your phone, what it publishes to
+            Nostr, and what it never collects.
           </Text>
         </Card>
 
@@ -203,15 +126,6 @@ export const PrivacyPolicyScreen: React.FC<{ navigation: any }> = ({
           />
         ))}
 
-        {/* Footer */}
-        <Card style={styles.footerCard}>
-          <Text style={styles.footerTitle}>Decentralized by Design</Text>
-          <Text style={styles.footerText}>
-            RUNSTR operates without traditional servers, placing you in complete
-            control of your data. Your fitness journey lives on the open Nostr
-            protocol, ensuring true data ownership and portability.
-          </Text>
-        </Card>
 
         <View style={styles.bottomPadding} />
       </ScrollView>
@@ -281,25 +195,6 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   sectionContent: {
-    fontSize: 14,
-    color: theme.colors.textSecondary,
-    lineHeight: 20,
-  },
-  footerCard: {
-    marginTop: 20,
-    marginBottom: 20,
-    padding: 20,
-    backgroundColor: theme.colors.card,
-    borderWidth: 1,
-    borderColor: theme.colors.primary,
-  },
-  footerTitle: {
-    fontSize: 16,
-    fontWeight: theme.typography.weights.bold,
-    color: theme.colors.primary,
-    marginBottom: 8,
-  },
-  footerText: {
     fontSize: 14,
     color: theme.colors.textSecondary,
     lineHeight: 20,

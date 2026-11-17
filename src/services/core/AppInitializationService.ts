@@ -1,14 +1,12 @@
 /**
  * AppInitializationService
  * Background data loading service - runs silently without blocking UI
- * Handles initial data prefetching for authenticated users
+ * Connects to relays and warms the user's profile for authenticated users
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { NostrInitializationService } from '../nostr/NostrInitializationService';
-import nostrPrefetchService from '../nostr/NostrPrefetchService';
 import { getUserNostrIdentifiers } from '../../utils/nostr';
-import { WoTService } from '../wot/WoTService';
 
 class AppInitializationService {
   private static instance: AppInitializationService | null = null;
@@ -95,34 +93,6 @@ class AppInitializationService {
           );
           console.log('✅ AppInit: Profile loaded');
 
-          // Pre-fetch WoT score for social posting eligibility
-          // This gates Kind 1 posting to users with WoT > 0
-          if (identifiers.hexPubkey) {
-            try {
-              console.log('🔐 AppInit: Pre-fetching WoT score...');
-              const wotService = WoTService.getInstance();
-              await wotService.fetchAndCacheScore(identifiers.hexPubkey);
-              console.log('✅ AppInit: WoT score cached');
-            } catch (error) {
-              console.warn('⚠️ AppInit: WoT pre-fetch failed (non-blocking):', error);
-            }
-          }
-
-          // Check if aborted before prefetch
-          if (signal.aborted) {
-            console.log('⚠️ AppInit: Aborted before data prefetch');
-            return;
-          }
-
-          // Step 3: Prefetch all user data (teams, workouts, wallet, competitions)
-          console.log('📦 AppInit: Prefetching all data...');
-          await nostrPrefetchService.prefetchAllUserData(
-            (step, total, message) => {
-              console.log(`📊 AppInit: ${message} (${step}/${total})`);
-            }
-          );
-
-          console.log('✅ AppInit: All data loaded!');
         }
 
         // CRITICAL FIX: Only set flags if not aborted and not already completed

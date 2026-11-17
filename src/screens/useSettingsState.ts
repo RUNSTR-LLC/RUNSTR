@@ -8,7 +8,6 @@ import {
   TTSPreferencesService,
   type TTSSettings,
 } from '../services/activity/TTSPreferencesService';
-import { DeleteAccountService } from '../services/auth/DeleteAccountService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
 import * as SecureStore from 'expo-secure-store';
@@ -18,17 +17,9 @@ import { AuthService } from '../services/auth/authService';
 import Toast from 'react-native-toast-message';
 import { useUnitPreference } from '../hooks/useUnitPreference';
 import { useTranslation } from 'react-i18next';
-import { LanguagePreferenceService } from '../services/i18n/LanguagePreferenceService';
-import { SUPPORTED_LANGUAGES, LanguageCode } from '../i18n';
-import { MusicPlayerPreferencesService } from '../services/music/MusicPlayerPreferencesService';
-import { WoTService } from '../services/wot/WoTService';
 import { AutoBackupService } from '../services/backup/AutoBackupService';
 import { BackupService } from '../services/backup/BackupService';
 import { SecureNsecStorage } from '../services/auth/SecureNsecStorage';
-import { defaultActivityService, type DefaultActivity } from '../services/activity/DefaultActivityService';
-import { NWCStorageService } from '../services/wallet/NWCStorageService';
-import { NWCWalletService } from '../services/wallet/NWCWalletService';
-import type { QRData } from '../services/qr/QRCodeService';
 
 export interface AlertState {
   visible: boolean;
@@ -45,9 +36,6 @@ export function useSettingsState(onSignOut?: () => void | Promise<void>) {
   const navigation = useNavigation<any>();
   const { t } = useTranslation('settings');
   const { isMetric, setUnitSystem } = useUnitPreference();
-  const [currentLanguage, setCurrentLanguage] = useState<LanguageCode>(
-    LanguagePreferenceService.getCurrentLanguage()
-  );
   const [isDeletingAccount, setIsDeletingAccount] = useState(false);
   const [userNsec, setUserNsec] = useState<string | null>(null);
   const [userNpub, setUserNpub] = useState<string | null>(null);
@@ -58,23 +46,11 @@ export function useSettingsState(onSignOut?: () => void | Promise<void>) {
     includeSplits: false,
     announceLiveSplits: false,
   });
-  const [showAntiCheatModal, setShowAntiCheatModal] = useState(false);
-  const [musicPlayerHeaderEnabled, setMusicPlayerHeaderEnabled] = useState(false);
-  const [wotScore, setWotScore] = useState<number | null>(null);
   const [showExportModal, setShowExportModal] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
   const [autoBackupEnabled, setAutoBackupEnabled] = useState(true);
   const [lastBackupTime, setLastBackupTime] = useState<string | null>(null);
-  const [defaultActivity, setDefaultActivity] = useState<DefaultActivity>('run');
-  const [showDefaultActivityPicker, setShowDefaultActivityPicker] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [hasNWCWallet, setHasNWCWallet] = useState(false);
-  const [showWalletConfigModal, setShowWalletConfigModal] = useState(false);
-  const [showQRScannerModal, setShowQRScannerModal] = useState(false);
-  const [showNWCQRConfirmModal, setShowNWCQRConfirmModal] = useState(false);
-  const [scannedNWCString, setScannedNWCString] = useState('');
-  const [showAgentSkillModal, setShowAgentSkillModal] = useState(false);
-  const [privateModeEnabled, setPrivateModeEnabled] = useState(false);
   const [healthKitSyncEnabled, setHealthKitSyncEnabled] = useState(false);
   const [healthKitAuthorized, setHealthKitAuthorized] = useState(false);
   const [healthKitLastSync, setHealthKitLastSync] = useState<string | null>(null);
@@ -113,33 +89,10 @@ export function useSettingsState(onSignOut?: () => void | Promise<void>) {
       setUserNsec(nsec);
       setUserNpub(npub);
 
-      const musicHeaderEnabled = await MusicPlayerPreferencesService.isMusicPlayerHeaderEnabled();
-      setMusicPlayerHeaderEnabled(musicHeaderEnabled);
-
-      const savedDefaultActivity = await defaultActivityService.getDefault();
-      setDefaultActivity(savedDefaultActivity);
-
-      const pubkey = await AsyncStorage.getItem('@runstr:hex_pubkey');
-      if (pubkey) {
-        try {
-          const wotService = WoTService.getInstance();
-          const score = await wotService.getCachedScore(pubkey);
-          setWotScore(score);
-        } catch (wotError) {
-          console.warn('[Settings] WoT score load failed:', wotError);
-        }
-      }
-
       const autoBackup = await AutoBackupService.getInstance().isAutoBackupEnabled();
       setAutoBackupEnabled(autoBackup);
       const backupTime = await BackupService.getInstance().getLastBackupTime();
       setLastBackupTime(backupTime);
-
-      const nwcAvailable = await NWCStorageService.hasNWC();
-      setHasNWCWallet(nwcAvailable);
-
-      const privateMode = await AsyncStorage.getItem('@runstr:private_mode');
-      setPrivateModeEnabled(privateMode === 'true');
 
       if (Platform.OS === 'ios') {
         try {
@@ -171,35 +124,6 @@ export function useSettingsState(onSignOut?: () => void | Promise<void>) {
     } catch (error) {
       console.error('Error loading settings:', error);
     }
-  };
-
-  const handleDisconnectWallet = () => {
-    showAlert('Disconnect Wallet?', 'This will remove your NWC wallet connection. You can reconnect anytime.', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Disconnect',
-        style: 'destructive',
-        onPress: async () => {
-          NWCWalletService.disconnect();
-          setHasNWCWallet(false);
-          Toast.show({ type: 'success', text1: 'Wallet Disconnected', text2: 'NWC connection removed', position: 'top', visibilityTime: 3000 });
-        },
-      },
-    ]);
-  };
-
-  const handleNWCQRScanned = (data: QRData) => {
-    if (data.type === 'nwc') {
-      setScannedNWCString(data.connectionString);
-      setTimeout(() => setShowNWCQRConfirmModal(true), 50);
-    }
-  };
-
-  const handleNWCConnectSuccess = () => {
-    setHasNWCWallet(true);
-    setShowWalletConfigModal(false);
-    setShowNWCQRConfirmModal(false);
-    Toast.show({ type: 'success', text1: 'Wallet Connected', position: 'bottom', visibilityTime: 2000 });
   };
 
   const handleTTSSettingChange = async <K extends keyof TTSSettings>(key: K, value: TTSSettings[K]) => {
@@ -285,35 +209,6 @@ export function useSettingsState(onSignOut?: () => void | Promise<void>) {
     }
   };
 
-  const handleMusicPlayerHeaderToggle = async (enabled: boolean) => {
-    try {
-      await MusicPlayerPreferencesService.setMusicPlayerHeaderEnabled(enabled);
-      setMusicPlayerHeaderEnabled(enabled);
-    } catch (error) {
-      console.error('Error saving music player header setting:', error);
-      const current = await MusicPlayerPreferencesService.isMusicPlayerHeaderEnabled();
-      setMusicPlayerHeaderEnabled(current);
-    }
-  };
-
-  const handleDefaultActivityChange = async (activity: DefaultActivity) => {
-    try {
-      await defaultActivityService.setDefault(activity);
-      setDefaultActivity(activity);
-      setShowDefaultActivityPicker(false);
-      Toast.show({
-        type: 'success',
-        text1: 'Default Activity Set',
-        text2: `${defaultActivityService.getActivityDisplayName(activity)} is now your default`,
-        position: 'top',
-        visibilityTime: 2000,
-      });
-    } catch (error) {
-      console.error('[SettingsScreen] Error changing default activity:', error);
-      Toast.show({ type: 'error', text1: 'Error', text2: 'Failed to save default activity', position: 'top' });
-    }
-  };
-
   const handleBack = () => {
     if (navigation.canGoBack()) {
       navigation.goBack();
@@ -346,22 +241,12 @@ export function useSettingsState(onSignOut?: () => void | Promise<void>) {
   };
 
   const handleDeleteAccount = async () => {
-    const deleteService = DeleteAccountService.getInstance();
-    const dataSummary = await deleteService.getDataSummary();
-
-    let warningDetails = 'This action will:\n\n';
-    warningDetails += '• Permanently remove your nsec from this device\n';
-    if (dataSummary.hasWallet) {
-      warningDetails += '• Delete your Lightning wallet and any remaining balance\n';
-    }
-    if (dataSummary.teamCount > 0) {
-      warningDetails += `• Remove you from ${dataSummary.teamCount} team${dataSummary.teamCount > 1 ? 's' : ''}\n`;
-    }
-    if (dataSummary.workoutCount > 0) {
-      warningDetails += `• Delete ${dataSummary.workoutCount} cached workout${dataSummary.workoutCount > 1 ? 's' : ''}\n`;
-    }
-    warningDetails += '• Request deletion from servers (cannot be guaranteed)\n';
-    warningDetails += '\nThis action CANNOT be undone!';
+    const warningDetails =
+      'This action will:\n\n' +
+      '• Permanently remove your nsec from this device\n' +
+      '• Delete your run history from this device\n\n' +
+      'Runs already published to Nostr stay on relays.\n\n' +
+      'This action CANNOT be undone!';
 
     showAlert('Delete Account', 'Are you sure you want to permanently delete your account?', [
       { text: 'Cancel', style: 'cancel' },
@@ -378,6 +263,7 @@ export function useSettingsState(onSignOut?: () => void | Promise<void>) {
                 style: 'destructive',
                 onPress: async () => {
                   hideAlert();
+                  await SecureNsecStorage.clearNsec();
                   await AsyncStorage.clear();
                   await SecureStore.deleteItemAsync('nwc_string');
                   RNRestart.restart();
@@ -401,79 +287,36 @@ export function useSettingsState(onSignOut?: () => void | Promise<void>) {
     }
   };
 
-  const handlePrivateModeToggle = async (value: boolean) => {
-    try {
-      setPrivateModeEnabled(value);
-      await AsyncStorage.setItem('@runstr:private_mode', value ? 'true' : 'false');
-      Toast.show({
-        type: 'success',
-        text1: value ? 'Private Mode On' : 'Private Mode Off',
-        text2: value ? 'Workouts stay on your device' : 'Workouts can be shared',
-        position: 'bottom',
-        visibilityTime: 2000,
-      });
-    } catch (error) {
-      console.error('[Settings] Error saving private mode setting:', error);
-      const current = await AsyncStorage.getItem('@runstr:private_mode');
-      setPrivateModeEnabled(current === 'true');
-    }
-  };
-
-  const handleLanguageChange = async (languageCode: LanguageCode) => {
-    try {
-      await LanguagePreferenceService.setLanguage(languageCode);
-      setCurrentLanguage(languageCode);
-      Toast.show({
-        type: 'success',
-        text1: t('saved'),
-        text2: SUPPORTED_LANGUAGES.find(l => l.code === languageCode)?.nativeName || languageCode,
-        position: 'top',
-        visibilityTime: 2000,
-      });
-    } catch (error) {
-      console.error('[SettingsScreen] Error changing language:', error);
-    }
-  };
-
   const handleBackupPassword = () => {
     if (!userNsec) {
-      showAlert('Error', 'No account key found. Please sign in again.', [{ text: 'OK' }]);
+      showAlert('No nsec on this device', 'You signed in with an external signer, so your key is not stored in RUNSTR.', [{ text: 'OK' }]);
       return;
     }
 
-    showAlert('Backup Your Password',
-      'Your password is the master key to your account.\n\n' +
-        'IMPORTANT:\n' +
-        '• We do not keep backups of passwords\n' +
-        '• Your password is only stored locally on your phone\n' +
-        '• If you lose your password, you lose access to your account\n' +
-        '• Keep your password safe - write it down or use a password manager\n' +
-        '• NEVER share it with anyone\n' +
-        '• This is the ONLY way to recover your account\n\n' +
-        'Would you like to copy your password?',
+    showAlert('Back Up Your nsec',
+      'Your nsec is the private key to your Nostr account.\n\n' +
+        '• It is only stored on this phone - RUNSTR keeps no copy\n' +
+        '• If you lose it, you lose access to this account\n' +
+        '• Anyone who has it can post as you - never share it\n\n' +
+        'Copy your nsec now?',
       [
         { text: 'Cancel', style: 'cancel' },
         {
-          text: 'Yes, Copy Password',
+          text: 'Copy nsec',
           onPress: async () => {
             try {
               await Clipboard.setStringAsync(userNsec);
               hideAlert();
               setTimeout(() => {
-                showAlert('Password Copied',
-                  'Your password has been copied to your clipboard.\n\n' +
-                    'Security Tips:\n' +
-                    '1. Paste it in a secure password manager NOW\n' +
-                    '2. Clear your clipboard after saving it\n' +
-                    '3. Never paste it in untrusted apps\n' +
-                    '4. Remember: We do not keep backups - if you lose it, your account is gone forever',
-                  [{ text: 'I Understand', style: 'default' }]);
+                showAlert('nsec Copied',
+                  'Paste it into a password manager now, then clear your clipboard.',
+                  [{ text: 'OK', style: 'default' }]);
               }, 100);
             } catch (error) {
               console.error('Failed to copy nsec:', error);
               hideAlert();
               setTimeout(() => {
-                showAlert('Error', 'Failed to copy password. Please try again.', [{ text: 'OK' }]);
+                showAlert('Error', 'Failed to copy your nsec. Please try again.', [{ text: 'OK' }]);
               }, 100);
             }
           },
@@ -484,28 +327,30 @@ export function useSettingsState(onSignOut?: () => void | Promise<void>) {
   const handleCopyNpub = async () => {
     if (userNpub) {
       await Clipboard.setStringAsync(userNpub);
-      Toast.show({ type: 'success', text1: 'Copied!', text2: 'Your npub has been copied to clipboard', position: 'top', visibilityTime: 2000 });
+      Toast.show({ type: 'success', text1: 'npub copied', text2: 'Your public Nostr ID is on the clipboard', position: 'top', visibilityTime: 2000 });
     }
   };
 
+  // The agent only needs the public npub: published runs are public 1301 notes.
+  const handleCopyAgentPrompt = async () => {
+    if (!userNpub) return;
+    await Clipboard.setStringAsync(
+      `Use the runstr-fitness skill to read my runs from Nostr. My npub is ${userNpub}`
+    );
+    Toast.show({ type: 'success', text1: 'Copied', text2: 'Paste it to your AI agent', position: 'top', visibilityTime: 2500 });
+  };
+
   return {
-    isMetric, setUnitSystem, currentLanguage, isDeletingAccount, userNsec,
-    ttsSettings, musicPlayerHeaderEnabled, wotScore,
+    isMetric, setUnitSystem, isDeletingAccount, userNsec, userNpub,
+    ttsSettings,
     showExportModal, setShowExportModal, showImportModal, setShowImportModal,
-    autoBackupEnabled, lastBackupTime, defaultActivity,
-    showDefaultActivityPicker, setShowDefaultActivityPicker, isRefreshing,
-    hasNWCWallet, showWalletConfigModal, setShowWalletConfigModal,
-    showQRScannerModal, setShowQRScannerModal,
-    showNWCQRConfirmModal, setShowNWCQRConfirmModal, scannedNWCString,
-    showAgentSkillModal, setShowAgentSkillModal, privateModeEnabled,
+    autoBackupEnabled, lastBackupTime, isRefreshing,
     healthKitSyncEnabled, healthKitAuthorized, healthKitLastSync,
     healthConnectSyncEnabled, healthConnectAvailable, healthConnectAuthorized, healthConnectLastSync,
-    showAntiCheatModal, setShowAntiCheatModal, alert, hideAlert,
-    handleDisconnectWallet, handleNWCQRScanned, handleNWCConnectSuccess,
+    alert, hideAlert,
     handleTTSSettingChange, handleAutoBackupToggle, handleHealthKitSyncToggle,
-    handleHealthConnectSyncToggle,
-    handleMusicPlayerHeaderToggle, handleDefaultActivityChange, handleBack,
-    handleSignOut, handleDeleteAccount, handleRefresh, handlePrivateModeToggle,
-    handleLanguageChange, handleBackupPassword, handleCopyNpub,
+    handleHealthConnectSyncToggle, handleBack,
+    handleSignOut, handleDeleteAccount, handleRefresh,
+    handleBackupPassword, handleCopyNpub, handleCopyAgentPrompt,
   };
 }

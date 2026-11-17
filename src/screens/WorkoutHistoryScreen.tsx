@@ -72,13 +72,13 @@ export const WorkoutHistoryScreen: React.FC<WorkoutHistoryScreenProps> = ({
       <SafeAreaView style={styles.container}>
         <View style={styles.errorContainer}>
           <Ionicons
-            name="alert-circle-outline"
-            size={64}
-            color={theme.colors.error}
+            name="time-outline"
+            size={48}
+            color={theme.colors.textMuted}
           />
-          <Text style={styles.errorTitle}>No User Found</Text>
+          <Text style={styles.errorTitle}>History isn't available</Text>
           <Text style={styles.errorMessage}>
-            Please log in to view your runs
+            Sign in to see your runs.
           </Text>
           <TouchableOpacity style={styles.errorButton} onPress={handleGoBack}>
             <Text style={styles.errorButtonText}>Go Back</Text>

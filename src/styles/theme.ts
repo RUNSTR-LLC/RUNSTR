@@ -9,6 +9,8 @@ export const colors = {
   cardBackground: '#0a0a0a', // all cards
   card: '#0a0a0a', // alias for cardBackground for compatibility
   border: '#1a1a1a', // card borders, separators
+  surface: '#1a1a1a', // raised surfaces on cards: buttons, inputs, toasts
+  borderStrong: '#2a2a2a', // border on a raised surface
 
   // Orange palette - from RUNSTR logo
   orangeBright: '#FF9D42', // Bright orange (highlights, active states)

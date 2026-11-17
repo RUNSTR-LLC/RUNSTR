@@ -22,7 +22,6 @@ import { CacheKeys } from '../constants/cacheTTL';
 import type { User } from '../types';
 import { PerformanceLogger } from '../utils/PerformanceLogger';
 import { NostrFetchLogger } from '../utils/NostrFetchLogger';
-import VerificationService from '../services/verification/VerificationService';
 import { UnifiedSigningService } from '../services/auth/UnifiedSigningService';
 
 // Authentication state interface
@@ -39,7 +38,6 @@ interface AuthState {
 interface AuthActions {
   signIn: (nsec: string) => Promise<{ success: boolean; error?: string }>;
   signUp: () => Promise<{ success: boolean; error?: string }>;
-  signInWithApple: () => Promise<{ success: boolean; error?: string }>;
   signInWithAmber: () => Promise<{ success: boolean; error?: string }>;
   signOut: () => Promise<void>;
   refreshAuthentication: () => Promise<void>;
@@ -398,12 +396,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           setInitError(null);
         }, 100);
 
-        // Fetch verification code in background (non-blocking)
-        if (result.user?.npub) {
-          VerificationService.fetchAndStoreCode(result.user.npub).catch((err) => {
-            console.warn('[Auth] Verification code fetch failed:', err);
-          });
-        }
 
         return { success: true };
       } catch (error) {
@@ -473,12 +465,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       setConnectionStatus('Connected');
       setInitError(null);
 
-      // Fetch verification code in background (non-blocking)
-      if (result.user?.npub) {
-        VerificationService.fetchAndStoreCode(result.user.npub).catch((err) => {
-          console.warn('[Auth] Verification code fetch failed:', err);
-        });
-      }
 
       return { success: true };
     } catch (error) {
@@ -552,12 +538,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const { appCache } = await import('../utils/cache');
       await appCache.set('current_user_profile', result.user, 5 * 60 * 1000);
 
-      // Fetch verification code in background (non-blocking)
-      if (result.user?.npub) {
-        VerificationService.fetchAndStoreCode(result.user.npub).catch((err) => {
-          console.warn('[Auth] Verification code fetch failed:', err);
-        });
-      }
 
       return { success: true };
     } catch (error) {
@@ -567,64 +547,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       return { success: false, error: errorMessage };
     }
   }, []);
-
-  /**
-   * Sign in with Apple - generates deterministic Nostr keys
-   */
-  const signInWithApple = useCallback(async (): Promise<{
-    success: boolean;
-    error?: string;
-  }> => {
-    try {
-      console.log('🍎 AuthContext: Starting Apple Sign-In process...');
-      setConnectionStatus('Authenticating with Apple...');
-
-      // Use AuthService for Apple authentication
-      const result = await AuthService.signInWithApple();
-
-      if (!result.success || !result.user) {
-        console.error(
-          '❌ AuthContext: Apple authentication failed:',
-          result.error
-        );
-        return { success: false, error: result.error };
-      }
-
-      console.log(
-        '✅ AuthContext: Apple authentication successful - updating state'
-      );
-
-      // Direct state updates (like iOS app)
-      setIsAuthenticated(true);
-      setCurrentUser(result.user ?? null);
-      setIsConnected(true);
-      setConnectionStatus('Connected');
-      setInitError(null);
-
-      // Cache the profile
-      const { appCache } = await import('../utils/cache');
-      await appCache.set('current_user_profile', result.user, 5 * 60 * 1000);
-
-      // Trigger background profile refresh if needed
-      setTimeout(() => {
-        refreshProfileInBackground();
-      }, 1000);
-
-      // Fetch verification code in background (non-blocking)
-      if (result.user?.npub) {
-        VerificationService.fetchAndStoreCode(result.user.npub).catch((err) => {
-          console.warn('[Auth] Verification code fetch failed:', err);
-        });
-      }
-
-      return { success: true };
-    } catch (error) {
-      console.error('❌ AuthContext: Apple Sign-In error:', error);
-      const errorMessage =
-        error instanceof Error ? error.message : 'Apple Sign-In failed';
-      return { success: false, error: errorMessage };
-    }
-  }, [refreshProfileInBackground]);
 
   /**
    * Sign out - clear all authentication state
@@ -645,9 +567,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
     // Do cleanup in the background (non-blocking)
     try {
-      // Clear verification code
-      await VerificationService.clearCode();
-      console.log('✅ AuthContext: Verification code cleared');
+      // Remove the verification code older versions stored
+      await AsyncStorage.multiRemove([
+        '@runstr:verification_code',
+        '@runstr:verification_version',
+      ]);
 
       // Clear storage and caches
       await AuthService.signOut();
@@ -744,7 +668,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       // Actions (already stable via useCallback)
       signIn,
       signUp,
-      signInWithApple,
       signInWithAmber,
       signOut,
       refreshAuthentication,
@@ -759,7 +682,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       initError,
       signIn,
       signUp,
-      signInWithApple,
       signInWithAmber,
       signOut,
       refreshAuthentication,

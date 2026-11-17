@@ -21,8 +21,6 @@ import { StatusBar, View, Text, StyleSheet, TouchableOpacity, AppState, Platform
 LogBox.ignoreLogs([
   // This warning appears intermittently from third-party libraries
   'Text strings must be rendered within a <Text> component',
-  // Expected when new users haven't configured NWC wallet yet
-  '[NWC] ❌ User wallet initialization failed: No NWC connection string found',
   // Expected on iOS Simulator (no pedometer hardware) or when HealthKit permissions not granted
   '[DailyStepCounterService] Steps unavailable',
   // Normal Nostr relay responses during connection/query - not errors
@@ -68,11 +66,9 @@ function installGlobalJsExceptionHandler(): void {
 }
 
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import * as Linking from 'expo-linking';
 
 // Initialize i18n for internationalization
 import './i18n';
-import { LanguagePreferenceService } from './services/i18n/LanguagePreferenceService';
 
 // Error Boundary Component to catch runtime errors during initialization
 class AppErrorBoundary extends React.Component<
@@ -96,8 +92,8 @@ class AppErrorBoundary extends React.Component<
   render() {
     if (this.state.hasError) {
       return (
-        <SafeAreaProvider style={{ backgroundColor: '#000' }}>
-          <StatusBar barStyle="light-content" backgroundColor="#000000" />
+        <SafeAreaProvider style={{ backgroundColor: theme.colors.background }}>
+          <StatusBar barStyle="light-content" backgroundColor={theme.colors.background} />
           <View style={errorStyles.container}>
             <Text style={errorStyles.title}>App Error</Text>
             <Text style={errorStyles.error}>
@@ -151,11 +147,11 @@ class ScreenErrorBoundary extends React.Component<
             style={{
               marginTop: 20,
               padding: 12,
-              backgroundColor: '#1a1a1a',
+              backgroundColor: theme.colors.surface,
               borderRadius: 8,
             }}
           >
-            <Text style={{ color: '#FFFFFF' }}>Go Back</Text>
+            <Text style={{ color: theme.colors.text }}>Go Back</Text>
           </TouchableOpacity>
         </View>
       );
@@ -172,11 +168,11 @@ const RunstrDarkTheme = {
   ...DarkTheme,
   colors: {
     ...DarkTheme.colors,
-    background: '#000000', // Matches theme.colors.background
-    card: '#000000', // Navigation cards and headers
-    border: '#1a1a1a', // Matches theme.colors.border
-    primary: '#FF7B1C', // Matches theme.colors.primary
-    text: '#FFB366', // Matches theme.colors.text
+    background: theme.colors.background, // Matches theme.colors.background
+    card: theme.colors.background, // Navigation cards and headers
+    border: theme.colors.border, // Matches theme.colors.border
+    primary: theme.colors.primary, // Matches theme.colors.primary
+    text: theme.colors.text, // Matches theme.colors.text
   },
 };
 
@@ -184,16 +180,13 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { NavigationDataProvider } from './contexts/NavigationDataContext';
 import { AppNavigator } from './navigation/AppNavigator';
 import { BottomTabNavigator } from './navigation/BottomTabNavigator';
-import { navigationRef, navigate as navigationRefNavigate } from './navigation/navigationRef';
+import { navigationRef } from './navigation/navigationRef';
 import { createStackNavigator } from '@react-navigation/stack';
 import { HelpSupportScreen } from './screens/HelpSupportScreen';
-import { ContactSupportScreen } from './screens/ContactSupportScreen';
 import { PrivacyPolicyScreen } from './screens/PrivacyPolicyScreen';
 import { SettingsScreen } from './screens/SettingsScreen';
 import { WorkoutHistoryScreen } from './screens/WorkoutHistoryScreen';
 import { ProfileEditScreen } from './screens/ProfileEditScreen';
-import { SavedRoutesScreen } from './screens/routes/SavedRoutesScreen';
-import { useWalletStore } from './store/walletStore';
 import { theme } from './styles/theme';
 import {
   safeSetItem,
@@ -204,67 +197,21 @@ import { AppStateManager } from './services/core/AppStateManager';
 import AppInitializationService from './services/core/AppInitializationService';
 import { Nostr1301ImportService } from './services/fitness/Nostr1301ImportService';
 import { RestoreService } from './services/backup/RestoreService';
-import { analytics } from './utils/analytics';
-import {
-  CustomAlertProvider,
-  CustomAlertManager,
-} from './components/ui/CustomAlert';
+import { CustomAlertProvider } from './components/ui/CustomAlert';
 import Toast from 'react-native-toast-message';
 import { toastConfig } from './components/ui/toastConfig';
-import {
-  parseEventDeepLink,
-  type ParsedEventData,
-} from './utils/eventDeepLink';
-
-// Music player components for Wavlake integration
-// Note: MiniMusicPlayer removed - replaced by ProfileMusicBar in ProfileScreen
-import { ExpandedMusicPlayer } from './components/music/ExpandedMusicPlayer';
-import { PlaylistBrowser } from './components/music/PlaylistBrowser';
 
 // ✅ FIX #18: Permission modal removed from startup to prevent iOS freeze
 // Permissions are now requested at point of use (when starting exercise tracking)
 
 // Types for authenticated app navigation
 type AuthenticatedStackParamList = {
-  Auth: undefined;
-  Main: undefined;
   MainTabs: undefined;
-  EventDetail: {
-    eventId: string;
-    eventData?: any;
-    teamId?: string; // ✅ NEW: Team context for fallback
-    captainPubkey?: string; // ✅ NEW: Captain context for fallback
-  };
-  CaptainDashboard: {
-    teamId?: string;
-    teamName?: string;
-    teamCaptainId?: string;
-    isCaptain?: boolean;
-    userNpub?: string;
-  };
-  Settings: any;
+  Settings: undefined;
   HelpSupport: undefined;
-  ContactSupport: undefined;
   PrivacyPolicy: undefined;
   WorkoutHistory: { userId: string; pubkey: string };
   ProfileEdit: undefined;
-  SavedRoutes: { activityType?: 'running' | 'cycling' | 'walking' };
-  AdvancedAnalytics: undefined;
-  HealthProfile: undefined;
-  EinundzwanzigDetail: undefined;
-  Season2: undefined;
-  Season3: undefined;
-  Rewards: undefined;
-  Compete: undefined;
-  Leaderboards: undefined;
-  DynamicEventDetail: { eventId: string };
-  JournalHistory: undefined;
-  StatsDetail: { npub: string };
-  Experimental: undefined;
-  ClubPage: { clubId: string; clubName: string };
-  ClubChat: { clubId: string; clubName: string; captainNpub: string; pinnedMessageId?: string };
-  LevelDetail: undefined;
-  Comments: { eventId: string; commentCount: number };
 };
 
 const AuthenticatedStack = createStackNavigator<AuthenticatedStackParamList>();
@@ -317,14 +264,6 @@ const AuthenticatedNavigator: React.FC = () => {
           '[App] 🚀 Authenticated user detected, cleanup starting...'
         );
 
-        console.log(
-          '[App] 💰 Cashu wallet initialization skipped (using NWC for Lightning payments)'
-        );
-        console.log('[App] 💳 NWC wallet will connect on-demand (no startup init)');
-        console.log(
-          '[App] ⚠️  Background challenge monitoring DISABLED for Android stability'
-        );
-
         // ✅ PERFORMANCE: Mark initialization as complete
         await safeSetItem('@runstr:app_init_completed', 'true', 2000);
         console.log('[App] ✅ App initialization complete - flag set');
@@ -347,7 +286,7 @@ const AuthenticatedNavigator: React.FC = () => {
       screenOptions={{
         headerShown: false,
         presentation: 'modal',
-        cardStyle: { backgroundColor: '#000' }, // Prevent white flash
+        cardStyle: { backgroundColor: theme.colors.background }, // Prevent white flash
       }}
     >
       {/* Main bottom tabs */}
@@ -356,9 +295,7 @@ const AuthenticatedNavigator: React.FC = () => {
         options={{ headerShown: false }}
       >
         {() => (
-          <BottomTabNavigator
-            onSignOut={signOut}
-          />
+          <BottomTabNavigator />
         )}
       </AuthenticatedStack.Screen>
 
@@ -369,10 +306,9 @@ const AuthenticatedNavigator: React.FC = () => {
           headerShown: false,
         }}
       >
-        {({ navigation, route }) => (
+        {({ navigation }) => (
           <SettingsScreen
             onHelp={() => navigation.navigate('HelpSupport')}
-            onContactSupport={() => navigation.navigate('ContactSupport')}
             onPrivacyPolicy={() => navigation.navigate('PrivacyPolicy')}
             onSignOut={async () => {
               // Reset initialization state on logout
@@ -393,15 +329,6 @@ const AuthenticatedNavigator: React.FC = () => {
           headerShown: false,
         }}
         component={HelpSupportScreen}
-      />
-
-      {/* Contact Support Screen */}
-      <AuthenticatedStack.Screen
-        name="ContactSupport"
-        options={{
-          headerShown: false,
-        }}
-        component={ContactSupportScreen}
       />
 
       {/* Privacy Policy Screen */}
@@ -430,16 +357,6 @@ const AuthenticatedNavigator: React.FC = () => {
           presentation: 'modal',
         }}
         component={ProfileEditScreen}
-      />
-
-      {/* Saved Routes Screen - Manage GPS routes */}
-      <AuthenticatedStack.Screen
-        name="SavedRoutes"
-        options={{
-          headerShown: false,
-          presentation: 'modal',
-        }}
-        component={SavedRoutesScreen}
       />
 
     </AuthenticatedStack.Navigator>
@@ -475,26 +392,6 @@ const AppContent: React.FC<AppContentProps> = ({ onPermissionComplete }) => {
   }, []);
 
   const [hasInitialized, setHasInitialized] = React.useState(false);
-
-  // Event deep link state
-  const [pendingEventNavigation, setPendingEventNavigation] =
-    React.useState<ParsedEventData | null>(null);
-  // Uses shared navigationRef from './navigation/navigationRef' (imported at top)
-
-  // Initialize analytics context for authenticated sessions
-  React.useEffect(() => {
-    if (!isAuthenticated || !currentUser) {
-      return;
-    }
-
-    const analyticsUserId = currentUser.npub || currentUser.id;
-    if (!analyticsUserId) {
-      console.warn('[App] Analytics init skipped: missing user identifier');
-      return;
-    }
-
-    analytics.initialize(analyticsUserId);
-  }, [isAuthenticated, currentUser]);
 
   // Initialize app after authentication
   React.useEffect(() => {
@@ -579,105 +476,11 @@ const AppContent: React.FC<AppContentProps> = ({ onPermissionComplete }) => {
     };
   }, [isAuthenticated, currentUser]);
 
-  // Handle pending event navigation when navigation is ready
-  React.useEffect(() => {
-    if (
-      pendingEventNavigation &&
-      navigationRef.isReady() &&
-      isAuthenticated &&
-      currentUser
-    ) {
-      console.log(
-        '🎯 Navigating to event from deep link:',
-        pendingEventNavigation.eventId
-      );
-
-      // Small delay to ensure navigation stack is ready
-      setTimeout(() => {
-        try {
-          navigationRefNavigate('DynamicEventDetail', {
-            eventId: pendingEventNavigation.eventId,
-          });
-          setPendingEventNavigation(null);
-        } catch (error) {
-          console.error('❌ Failed to navigate to event:', error);
-          CustomAlertManager.alert(
-            'Navigation Error',
-            'Failed to open event. Please try again.'
-          );
-          setPendingEventNavigation(null);
-        }
-      }, 500);
-    }
-  }, [pendingEventNavigation, isAuthenticated, currentUser]);
-
-  // Handle deep links (Challenge QR codes, events)
-  React.useEffect(() => {
-    const handleDeepLink = async ({ url }: { url: string }) => {
-      console.log('🔗 Deep link received:', url);
-
-      const { hostname, path, queryParams } = Linking.parse(url);
-      console.log('📍 Parsed deep link:', { hostname, path, queryParams });
-
-      // Handle Event deep link: runstr://event/{eventId}?team={teamId}&name={eventName}
-      if (path?.startsWith('event/') || url.includes('runstr://event/')) {
-        console.log('🎯 Event deep link detected');
-
-        try {
-          const parsedEvent = parseEventDeepLink(url);
-          console.log('📦 Parsed event data:', parsedEvent);
-
-          if (parsedEvent.isValid && parsedEvent.eventId) {
-            console.log('✅ Valid event data - storing for navigation');
-            // Store event data for navigation after app is ready
-            setPendingEventNavigation(parsedEvent);
-          } else {
-            console.error('❌ Invalid event data:', parsedEvent.error);
-            CustomAlertManager.alert(
-              'Invalid Event',
-              parsedEvent.error || 'This event link is invalid or expired.'
-            );
-          }
-        } catch (error) {
-          console.error('❌ Failed to parse event deep link:', error);
-          CustomAlertManager.alert(
-            'Error',
-            'Failed to process event link. Please try again.'
-          );
-        }
-        return;
-      }
-    };
-
-    // Listen for deep links when app is already open
-    const subscription = Linking.addEventListener('url', handleDeepLink);
-
-    // Check if app was opened via deep link (cold start)
-    Linking.getInitialURL().then((url) => {
-      if (url) {
-        console.log('🔗 App opened via deep link (cold start):', url);
-        handleDeepLink({ url });
-      }
-    }).catch((err) => console.warn('[App] Failed to get initial URL:', err));
-
-    return () => subscription.remove();
-  }, []);
-
-  // PERFORMANCE OPTIMIZATION: App state detection for smart resume
-  const walletStore = useWalletStore();
-  const appState = React.useRef(AppState.currentState);
-  const backgroundTime = React.useRef<number>(0);
-
-  // ⚠️ AppState management is now handled by AppStateManager
-  // This prevents multiple conflicting listeners and race conditions
-  // that were causing instant crashes on Android in v0.6.2-v0.6.5
-  // AppStateManager is the SINGLE source of truth for app state
-
   // Show error screen if initialization failed
   if (initError && !isInitializing) {
     return (
-      <SafeAreaProvider style={{ backgroundColor: '#000' }}>
-        <StatusBar barStyle="light-content" backgroundColor="#000000" />
+      <SafeAreaProvider style={{ backgroundColor: theme.colors.background }}>
+        <StatusBar barStyle="light-content" backgroundColor={theme.colors.background} />
         <View style={errorStyles.container}>
           <Text style={errorStyles.title}>Initialization Error</Text>
           <Text style={errorStyles.error}>{initError}</Text>
@@ -691,8 +494,8 @@ const AppContent: React.FC<AppContentProps> = ({ onPermissionComplete }) => {
   // No splash screens, no onboarding screens
 
   return (
-    <SafeAreaProvider style={{ backgroundColor: '#000' }}>
-      <StatusBar barStyle="light-content" backgroundColor="#000000" />
+    <SafeAreaProvider style={{ backgroundColor: theme.colors.background }}>
+      <StatusBar barStyle="light-content" backgroundColor={theme.colors.background} />
 
       <NavigationContainer ref={navigationRef} theme={RunstrDarkTheme}>
         {(() => {
@@ -743,12 +546,6 @@ const AppContent: React.FC<AppContentProps> = ({ onPermissionComplete }) => {
         })()}
       </NavigationContainer>
 
-      {/* Music Player - Wavlake integration */}
-      {/* Note: MiniMusicPlayer removed - replaced by ProfileMusicBar in ProfileScreen */}
-      <ExpandedMusicPlayer />
-      <PlaylistBrowser />
-
-      {/* Welcome Modal - Shows on first app launch */}
     </SafeAreaProvider>
   );
 };
@@ -773,14 +570,6 @@ export default function App() {
           // App can continue without polyfill in most cases
         }
 
-        // Initialize i18n language from saved preference
-        try {
-          await LanguagePreferenceService.initializeLanguage();
-          console.log('[App] 🌐 Language preference initialized');
-        } catch (error) {
-          console.warn('[App] Failed to initialize language preference:', error);
-          // App continues with default language
-        }
 
         // Enable WebSocket debugging in development mode for NWC troubleshooting
         if (__DEV__) {
@@ -890,7 +679,7 @@ export default function App() {
 
   if (!appIsReady) {
     // Black background prevents white flash between native splash screen dismissal and app ready
-    return <View style={{ flex: 1, backgroundColor: '#000000' }} />;
+    return <View style={{ flex: 1, backgroundColor: theme.colors.background }} />;
   }
 
   return (
@@ -912,13 +701,13 @@ export default function App() {
 const errorStyles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000000',
+    backgroundColor: theme.colors.background,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
   },
   title: {
-    color: '#FF6B00',
+    color: theme.colors.error,
     fontSize: 24,
     fontWeight: 'bold',
     marginBottom: 16,
@@ -931,7 +720,7 @@ const errorStyles = StyleSheet.create({
     textAlign: 'center',
   },
   instruction: {
-    color: '#888888',
+    color: theme.colors.textMuted,
     fontSize: 14,
     textAlign: 'center',
   },

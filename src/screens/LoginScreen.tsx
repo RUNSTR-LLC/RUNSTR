@@ -59,13 +59,13 @@ export const LoginScreen: React.FC<LoginScreenProps> = () => {
 
   const handleLogin = async () => {
     if (!nsecInput) {
-      setError('Please enter your password');
+      setError('Please enter your nsec');
       return;
     }
 
     // Validate nsec format
     if (!validateNsec(nsecInput)) {
-      setError('Invalid password format. Please check and try again.');
+      setError('That is not a valid nsec. It should start with "nsec1".');
       return;
     }
 
@@ -109,7 +109,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = () => {
 
       if (result.success) {
         console.log('✅ LoginScreen: Signup successful - new identity created');
-        // Password saved silently to storage
+        // nsec saved to secure storage
         // App.tsx will detect auth change and show welcome modal on first launch
       } else {
         console.error('❌ LoginScreen: Signup failed:', result.error);
@@ -166,7 +166,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = () => {
         } else if (result.error?.includes('permission')) {
           setError(
             'Please grant all requested permissions in Amber to use RUNSTR.\n\n' +
-              'RUNSTR needs permissions to sign workouts, manage teams, and sync your profile.'
+              'RUNSTR needs permission to sign your runs and profile updates.'
           );
         } else {
           setError(
@@ -276,7 +276,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = () => {
                         activeOpacity={0.8}
                         disabled={isLoading}
                       >
-                        <Text style={styles.loginButtonText}>Login</Text>
+                        <Text style={styles.loginButtonText}>Sign in</Text>
                       </TouchableOpacity>
 
                       {Platform.OS === 'android' && (
@@ -286,7 +286,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = () => {
                           disabled={isLoading}
                           activeOpacity={0.8}
                         >
-                          <Text style={styles.amberButtonText}>Login with Amber</Text>
+                          <Text style={styles.amberButtonText}>Sign in with Amber</Text>
                         </TouchableOpacity>
                       )}
                     </>
@@ -308,16 +308,16 @@ export const LoginScreen: React.FC<LoginScreenProps> = () => {
                     >
                       <Text style={styles.backButtonText}>← Back</Text>
                     </TouchableOpacity>
-                    <Text style={styles.inputTitle}>Enter your password</Text>
+                    <Text style={styles.inputTitle}>Sign in with your nsec</Text>
                   </View>
 
                   <View style={styles.inputField}>
-                    <Text style={styles.inputLabel}>Password</Text>
+                    <Text style={styles.inputLabel}>nsec</Text>
                     <TextInput
                       style={[styles.textInput, error && styles.textInputError]}
                       value={nsecInput}
                       onChangeText={handleNsecChange}
-                      placeholder="Enter your password..."
+                      placeholder="nsec1..."
                       placeholderTextColor={theme.colors.textOrange}
                       secureTextEntry={true}
                       autoCapitalize="none"
@@ -326,7 +326,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = () => {
                       editable={!isLoading}
                     />
                     <Text style={styles.inputHelper}>
-                      Your password is stored locally and never shared
+                      Your nsec stays on this phone and is never sent anywhere
                     </Text>
                   </View>
 
@@ -356,7 +356,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = () => {
                         </Text>
                       </View>
                     ) : (
-                      <Text style={styles.submitButtonText}>Login</Text>
+                      <Text style={styles.submitButtonText}>Sign in</Text>
                     )}
                   </TouchableOpacity>
 
@@ -519,7 +519,7 @@ const styles = StyleSheet.create({
     minHeight: 50,
   },
   textInputError: {
-    borderColor: theme.colors.error || '#FF6B00',
+    borderColor: theme.colors.error,
   },
   inputHelper: {
     fontSize: 12,
@@ -534,7 +534,7 @@ const styles = StyleSheet.create({
   },
   errorText: {
     fontSize: 14,
-    color: theme.colors.error || '#FF6B00',
+    color: theme.colors.error,
     textAlign: 'center',
     padding: 12,
     backgroundColor: 'rgba(255, 107, 0, 0.1)',

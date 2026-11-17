@@ -149,7 +149,7 @@ export const MonthlyWorkoutGroup: React.FC<MonthlyWorkoutGroupProps> = React.mem
             <Ionicons
               name={showStats ? 'stats-chart' : 'stats-chart-outline'}
               size={20}
-              color={showStats ? '#FF9D42' : '#CC7A33'}
+              color={showStats ? theme.colors.orangeBright : theme.colors.textMuted}
             />
           </TouchableOpacity>
         </View>

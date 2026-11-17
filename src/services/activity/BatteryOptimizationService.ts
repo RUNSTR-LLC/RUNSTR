@@ -4,6 +4,7 @@
  */
 
 import * as Battery from 'expo-battery';
+import { theme } from '../../styles/theme';
 import * as Location from 'expo-location';
 import * as IntentLauncher from 'expo-intent-launcher';
 import * as Application from 'expo-application';
@@ -190,7 +191,7 @@ export class BatteryOptimizationService {
         notificationBody: `Tracking your ${activityNames[
           activityType
         ].toLowerCase()} in progress`,
-        notificationColor: '#FF6B35', // RUNSTR orange color
+        notificationColor: theme.colors.primary,
       },
     };
   }

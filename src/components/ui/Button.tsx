@@ -110,7 +110,7 @@ const styles = StyleSheet.create({
   },
 
   addButtonText: {
-    color: '#000000', // Black text on bright orange
+    color: theme.colors.accentText, // Black text on bright orange
     fontSize: theme.typography.addBtn,
     fontWeight: theme.typography.weights.semiBold,
   },
@@ -122,13 +122,13 @@ const styles = StyleSheet.create({
   },
 
   addButtonIcon: {
-    color: '#000000', // Black icon on bright orange
+    color: theme.colors.accentText, // Black icon on bright orange
     fontSize: theme.typography.addBtn,
     fontWeight: theme.typography.weights.semiBold,
   },
 
   addButtonLabel: {
-    color: '#000000', // Black label on bright orange
+    color: theme.colors.accentText, // Black label on bright orange
     fontSize: theme.typography.addBtn,
     fontWeight: theme.typography.weights.semiBold,
   },

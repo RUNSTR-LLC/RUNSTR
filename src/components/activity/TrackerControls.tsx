@@ -31,7 +31,7 @@ export const TrackerControls: React.FC<TrackerControlsProps> = ({
             onPause();
           }}
           activeOpacity={0.7}
-          accessibilityLabel="Pause workout"
+          accessibilityLabel="Pause run"
           accessibilityRole="button"
         >
           <Ionicons name="pause" size={30} color={theme.colors.text} />
@@ -44,7 +44,7 @@ export const TrackerControls: React.FC<TrackerControlsProps> = ({
             onResume();
           }}
           activeOpacity={0.7}
-          accessibilityLabel="Resume workout"
+          accessibilityLabel="Resume run"
           accessibilityRole="button"
         >
           <Ionicons name="play" size={30} color={theme.colors.background} />
@@ -57,7 +57,7 @@ export const TrackerControls: React.FC<TrackerControlsProps> = ({
           onStop();
         }}
         activeOpacity={0.7}
-        accessibilityLabel="Stop workout"
+        accessibilityLabel="Finish run"
         accessibilityRole="button"
       >
         <Ionicons name="stop" size={30} color={theme.colors.text} />

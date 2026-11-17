@@ -11,6 +11,7 @@
  */
 
 import * as Location from 'expo-location';
+import { theme } from '../../styles/theme';
 import * as TaskManager from 'expo-task-manager';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
@@ -475,7 +476,7 @@ export class SimpleRunTracker {
         foregroundService: {
           notificationTitle: 'RUNSTR Active',
           notificationBody: 'Tracking your workout...',
-          notificationColor: '#FF6B35',
+          notificationColor: theme.colors.primary,
           // CRITICAL: Android 8.0+ requires notification channel for foreground services
           // Samsung/GrapheneOS kill services without valid channels after ~5 minutes
           notificationChannelId: 'runstr-gps-tracking',
@@ -1201,7 +1202,7 @@ export class SimpleRunTracker {
       foregroundService: {
         notificationTitle: 'RUNSTR Active',
         notificationBody: 'Tracking your workout...',
-        notificationColor: '#FF6B35',
+        notificationColor: theme.colors.primary,
         notificationChannelId: 'runstr-gps-tracking',
         notificationChannelName: 'GPS Tracking',
         notificationChannelDescription: 'Shows active workout tracking status',

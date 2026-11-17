@@ -29,7 +29,7 @@ export const DataBackupSection: React.FC<DataBackupSectionProps> = ({
 }) => {
   return (
     <View style={styles.section}>
-      <SettingsAccordion title="Data & Backup" defaultExpanded={false}>
+      <SettingsAccordion title="DATA & BACKUP" defaultExpanded={false}>
         <Card style={styles.accordionCard}>
           {/* Auto-Backup */}
           <SettingItem
@@ -46,7 +46,7 @@ export const DataBackupSection: React.FC<DataBackupSectionProps> = ({
                       if (hrs < 24) return `${hrs}h ago`;
                       return `${Math.floor(hrs / 24)}d ago`;
                     })()}`
-                  : 'Backs up after each workout'
+                  : 'Backs up after each run'
                 : 'Disabled'
             }
             rightElement={
@@ -59,7 +59,7 @@ export const DataBackupSection: React.FC<DataBackupSectionProps> = ({
           {/* Export Data */}
           <SettingItem
             title="Export Data"
-            subtitle="Backup workouts, habits & journal"
+            subtitle="Publish an encrypted backup of your runs to Nostr"
             onPress={onShowExportModal}
             rightElement={
               <View style={styles.securityIcon}>
@@ -74,7 +74,7 @@ export const DataBackupSection: React.FC<DataBackupSectionProps> = ({
           {/* Import Data */}
           <SettingItem
             title="Import Data"
-            subtitle="Restore from backup"
+            subtitle="Restore runs from your encrypted Nostr backup"
             onPress={onShowImportModal}
             rightElement={
               <View style={styles.securityIcon}>

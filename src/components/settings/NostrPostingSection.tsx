@@ -1,59 +1,28 @@
 /**
- * NostrPostingSection - "Sharing to Nostr" settings accordion.
+ * NostrPostingSection - "Nostr" settings accordion.
  *
- * Controls:
- *  - Auto-post workouts: automatically share each finished workout (default on).
- *  - Post format: what the Post action produces — a card post (every Nostr app)
- *    or a workout note (structured data, native in Amethyst). Currently HIDDEN
- *    (SHOW_FORMAT_TOGGLE = false); every Post defaults to a workout note (1301).
+ * One control: auto-publish each finished run as a kind 1301 note (default
+ * on). Runs are always saved on this device regardless.
  *
  * Self-contained: reads/writes NostrPostingPreferencesService directly.
- * Workouts are always saved regardless of these settings.
  */
 
 import React, { useEffect, useState } from 'react';
-import { View, Text, TouchableOpacity } from 'react-native';
-import { theme } from '../../styles/theme';
+import { View } from 'react-native';
 import { ThemedSwitch } from '../ui/ThemedSwitch';
 import { Card } from '../ui/Card';
 import { SettingsAccordion } from '../ui/SettingsAccordion';
 import { SettingItem } from './SettingItem';
-import { Ionicons } from '@expo/vector-icons';
 import { settingsStyles as styles } from '../../screens/settingsStyles';
-import {
-  NostrPostingPreferencesService,
-  type PostFormat,
-} from '../../services/activity/NostrPostingPreferencesService';
-
-// Post-format picker, surfaced in the Sharing accordion. Default is a workout
-// note (kind 1301) for cross-app interop (Amethyst/POWR/Chachi); a user can
-// opt into a card post (kind 1) that renders in every Nostr client.
-const SHOW_FORMAT_TOGGLE = false;
-
-const FORMAT_OPTIONS: { value: PostFormat; title: string; subtitle: string }[] = [
-  {
-    value: 'kind1',
-    title: 'Card post',
-    subtitle: 'A workout card — shows in every Nostr app',
-  },
-  {
-    value: 'kind1301',
-    title: 'Workout note',
-    subtitle: 'Structured workout data — shows natively in POWR and Amethyst',
-  },
-];
+import { NostrPostingPreferencesService } from '../../services/activity/NostrPostingPreferencesService';
 
 export const NostrPostingSection: React.FC = () => {
   // Initial value matches the service default (on) to avoid an off→on flicker
   // while the stored preference loads.
   const [autoPost, setAutoPost] = useState(true);
-  const [format, setFormat] = useState<PostFormat>('kind1301');
 
   useEffect(() => {
-    (async () => {
-      setAutoPost(await NostrPostingPreferencesService.isAutoPostEnabled());
-      setFormat(await NostrPostingPreferencesService.getPostFormat());
-    })();
+    NostrPostingPreferencesService.isAutoPostEnabled().then(setAutoPost);
   }, []);
 
   const onToggleAutoPost = async (value: boolean) => {
@@ -61,69 +30,17 @@ export const NostrPostingSection: React.FC = () => {
     await NostrPostingPreferencesService.setAutoPostEnabled(value);
   };
 
-  const onSelectFormat = async (value: PostFormat) => {
-    setFormat(value);
-    await NostrPostingPreferencesService.setPostFormat(value);
-  };
-
   return (
     <View style={styles.section}>
-      <SettingsAccordion title="Sharing" defaultExpanded={false}>
+      <SettingsAccordion title="NOSTR" defaultExpanded={false}>
         <Card style={styles.accordionCard}>
           <SettingItem
-            title="Auto-post workouts"
-            subtitle="Automatically share each finished workout. Your workout is always saved either way."
+            title="Publish runs to Nostr"
+            subtitle="Each finished run becomes a public workout note other Nostr apps can read. Off: runs stay on this device until you publish them from History."
             rightElement={
-              <ThemedSwitch
-                value={autoPost}
-                onValueChange={onToggleAutoPost}
-              />
+              <ThemedSwitch value={autoPost} onValueChange={onToggleAutoPost} />
             }
           />
-
-          {SHOW_FORMAT_TOGGLE && (
-          <View style={styles.voiceSubsection}>
-            <Text style={styles.subsectionTitle}>Post format</Text>
-            {FORMAT_OPTIONS.map((opt) => (
-              <TouchableOpacity
-                key={opt.value}
-                style={[
-                  styles.defaultActivityOption,
-                  format === opt.value && styles.defaultActivityOptionSelected,
-                ]}
-                onPress={() => onSelectFormat(opt.value)}
-              >
-                <View style={{ flex: 1 }}>
-                  <Text
-                    style={[
-                      styles.defaultActivityOptionText,
-                      format === opt.value &&
-                        styles.defaultActivityOptionTextSelected,
-                    ]}
-                  >
-                    {opt.title}
-                  </Text>
-                  <Text
-                    style={{
-                      color: theme.colors.textMuted,
-                      fontSize: 12,
-                      marginTop: 2,
-                    }}
-                  >
-                    {opt.subtitle}
-                  </Text>
-                </View>
-                {format === opt.value && (
-                  <Ionicons
-                    name="checkmark-circle"
-                    size={22}
-                    color={theme.colors.success}
-                  />
-                )}
-              </TouchableOpacity>
-            ))}
-          </View>
-          )}
         </Card>
       </SettingsAccordion>
     </View>

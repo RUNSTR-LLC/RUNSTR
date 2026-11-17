@@ -4,9 +4,9 @@
 
 RUNSTR is a Nostr-native running tracker. Tagline: **RUNSTR — Run with Nostr.**
 
-One loop: log in, track a run, it becomes a kind 1301 note on relays. That is the whole product surface right now. Login is anonymous-first ("Start"), the tracker is pinned to running, and a finished run auto-publishes as a kind 1301 workout note that renders natively in Amethyst, POWR, and Chachi.
+Four things and nothing else: sign in with Nostr, track a run, keep your history (on the phone and on Nostr as kind 1301 notes), and share your runs with your AI agent by npub. Login is anonymous-first ("Start"), the tracker is pinned to running, and a finished run auto-publishes as a kind 1301 workout note that renders natively in Amethyst, POWR, and Chachi.
 
-RUNSTR used to be a three-pillar cardio/social/rewards app. **Phase 1** (2026-09-18, design: `docs/superpowers/specs/2026-09-18-runstr-simplification-design.md`) hid that product behind flags. **Phase 2** (2026-10-18) made the app fully Nostr and **deleted** the hidden product: there is no Supabase client, no in-app rewards, no social feed, clubs, events, seasons, or leaderboards, and no kind 1 workout posts. Those live only in git history (pre-`7c05cbe2`). See "Phase 2: fully Nostr" below.
+RUNSTR used to be a three-pillar cardio/social/rewards app. **Phase 1** (2026-09-18, design: `docs/superpowers/specs/2026-09-18-runstr-simplification-design.md`) hid that product behind flags. **Phase 2** (2026-10-18) made the app fully Nostr and **deleted** the hidden product: there is no Supabase client, no in-app rewards, no social feed, clubs, events, seasons, or leaderboards, and no kind 1 workout posts. Those live only in git history (pre-`7c05cbe2`). **Phase 3** (2026-11-12) cut everything that was still loaded but off-product: music, wallet/zaps, WoT, teams, saved routes, share cards, Apple sign-in. See "Phase 2" and "Phase 3" below.
 
 **The in-app terminology firewall is gone.** Saying "Nostr" to the user is now correct and expected — the tagline says it. There is no longer a rule against user-facing "Nostr", "nsec", "relay", or "1301" language; use whatever is clearest. The one framing rule that survives:
 
@@ -18,26 +18,49 @@ RUNSTR used to be a three-pillar cardio/social/rewards app. **Phase 1** (2026-09
 
 - **No Supabase.** `src/` has no Supabase client (`utils/supabase.ts`, `edgeFunctions.ts`, and every backend/reward/competition/social/club/season service are deleted). New code must not add one. `@supabase/supabase-js` stays in `package.json` only for dev scripts under `scripts/`; `supabase/functions/` and migrations are untouched because the external zapper may still use that database — ask before deleting them.
 - **No in-app rewards.** Rewards are paid by the external zapper running against public 1301 notes on Nostr feeds; the app never triggers, estimates, polls, or displays rewards. 1301s carry no lightning/reward/WoT/charity/team tags.
-- **Kind 1301 is the only workout post.** `workoutPublishingService.postWorkout()` always publishes a 1301 (allowlisted tags only, `publishWorkout1301()`); the kind 1 card post and the share-card modal are deleted, and the Settings "Post format" picker is hidden (`SHOW_FORMAT_TOGGLE = false`). Every publish goes through `publishRun()` (`src/services/nostr/publishRun.ts`), which records the run as published (`WorkoutStatusTracker` + `LocalWorkout.syncedToNostr`). The post-run summary shows the publish status (published / retry / saved on this device), and History marks each run "On Nostr" or offers "Publish to Nostr".
+- **Kind 1301 is the only workout post.** `workoutPublishingService.postWorkout()` always publishes a 1301 (allowlisted tags only, `publishWorkout1301()`); the kind 1 card post and the share-card modal are deleted, along with the Settings "Post format" picker. Every publish goes through `publishRun()` (`src/services/nostr/publishRun.ts`), which records the run as published (`WorkoutStatusTracker` + `LocalWorkout.syncedToNostr`). The post-run summary shows the publish status (published / retry / saved on this device), and History marks each run "On Nostr" or offers "Publish to Nostr".
 - **Running only.** `ProfileScreen.renderTracker()` always renders `RunningTrackerScreen`; the walking/cycling/hiking trackers are deleted. History filters through `isRunningWorkout()` in `src/utils/isRunningWorkout.ts`. Apple Health / Health Connect still import other activity types on foreground sync — only display is filtered.
 - **No background sync.** The HealthKit background-delivery and Android WorkManager tasks only submitted to Supabase and are deleted; `AuthContext` unregisters the stale Android task (`runstr-background-sync`) on existing installs. Health data imports when the app is foregrounded.
-- **One surface.** `BottomTabNavigator` has a single Home tab (bar hidden). `AppNavigator` is a Login-only stack — `App.tsx` swaps to `AuthenticatedNavigator` once a user exists. `ProfileScreen` is owner-only (nothing navigates to another user's profile).
+- **One surface.** `BottomTabNavigator` has a single Home tab (bar hidden). `AppNavigator` is a Login-only stack — `App.tsx` swaps to `AuthenticatedNavigator` once a user exists. `ProfileScreen` is owner-only and takes just `user` and `onRefresh`. Live routes: MainTabs, Settings, HelpSupport, PrivacyPolicy, WorkoutHistory, ProfileEdit.
 - **Personal records are local.** `StatsCard` computes PRs from `LocalWorkoutStorageService`.
 - **Encrypted backup is chunked.** Workouts live in kind 30078 chunk events (`d` = `runstr-workout-backup:w0…wN`, 100 per chunk oldest-first, halved if over ~49KB compressed — the NIP-44 limit after base64). The main event (`d` = `runstr-workout-backup`) holds habits/journal/preferences and a `['chunks', N]` tag. Chunks publish before the main event; unchanged chunks are skipped, with a full re-send weekly. Logic in `src/services/backup/backupChunks.ts`. v1 single-event backups still restore. Amber users get 2 prompts per changed chunk.
 - **Restore + backfill on login.** `RestoreService.restoreInBackground()` runs once per install (`@runstr:auto_restore_done`) for nsec users, then `Nostr1301ImportService.backfillInBackground()` merges relay 1301s (throttled to once per 6 hours, `@runstr:last_1301_backfill`). Both are additive only and never block the UI. Amber users restore from Settings → Import (decrypt opens an Amber prompt).
-- **Remaining flags.** `src/config/features.ts` still has Phase 1 flags; flags whose features were deleted no longer restore anything.
-- **Verification.** `scripts/verify/verify-fully-nostr.ts` and `verify-backup-chunks.ts` (static). A simulator run confirming zero `supabase.co` requests and a real fresh-install restore has not been done yet.
+- **Flags.** `src/config/features.ts` holds only the two flags live code reads: `stepTracking` and `nonRunningHistory` (both `false`). Do not add flags for deleted features.
+- **Verification.** `scripts/verify/verify-fully-nostr.ts`, `verify-backup-chunks.ts`, and `verify-basics-surface.ts` (static). A simulator run confirming zero `supabase.co` requests and a real fresh-install restore has not been done yet.
 - **Finding dead code.** `python3 scripts/diagnostics/find-unreachable-files.py` lists src files unreachable from `index.js` (follows static imports, `require()`, and dynamic `import()`). `src/config/encryptedSecrets.ts` is unreachable but gitignored — leave it.
+
+## Phase 3: basics only (2026-11-12)
+
+The rule: if it is not sign-in, tracking, history, or agent sharing, it does not belong in the app. Removed features live in git history (pre-Phase 3), not behind flags.
+
+- **Deleted:** music (Wavlake/Blossom player), wallet and zap UI (NWC, QR scanner, `ExternalZapModal`), WoT score, team membership and captain cache, competition services, saved routes, share cards (`workoutCardGenerator`, saved-card viewer), image upload, Apple sign-in, debug overlays, anti-cheat request, default-activity picker, private-mode toggle, `navigationHandlers`, `userStore`/`walletStore`/`musicStore`.
+- **No Supabase call on login.** `VerificationService` (written to send the npub to a Supabase edge function on every login; nothing read its result) is deleted.
+- **`NavigationDataContext` is tiny.** It mirrors `AuthContext.currentUser` and refreshes the kind 0 profile. No team or wallet data.
+- **Startup.** `AppInitializationService` connects relays and warms the profile; nothing else.
+- **AI agent sharing.** Settings > Nostr Keys > "Share runs with your AI agent" copies a prompt with the user's **npub**. The agent uses the `runstr-fitness` skill (`.claude/skills/runstr-fitness/SKILL.md`) to read public 1301 notes. The nsec is never part of this flow.
+- **Settings copy.** Sections are Fitness Tracking, Nostr (auto-publish), Data & Backup, Nostr Keys (back up nsec, copy npub, agent), Support & Legal (Help, Privacy Policy), account actions. The app is English-only (`lng: 'en'`); the language picker and Contact Support form were removed in the 2026-11-16 polish pass (`scripts/verify/verify-polish-pass.ts`).
+- **Delete Account** now clears the nsec from SecureStore (`SecureNsecStorage.clearNsec()`) before wiping AsyncStorage.
+
+### Known leftovers (loaded, but worth cutting next)
+
+Ask before deleting; each needs a small refactor, not just a file removal.
+
+- `NostrRelayManager` (and whatever only it imports): kept alive only by `NostrProfilePublisher`. Should move to `GlobalNDKService`.
+- `HabitTrackerService` / `JournalService`: only used so the 30078 backup round-trips habits and journal entries from older installs. `ExportDataModal` still lists them when present.
+- `workoutMergeService` (1,173 lines) and `constants/featureFlags.ts`, `Nuclear1301Service`, `DailyStepCounterService` / `NativeStepCounterService`: reachable, not audited.
+- `types/team.ts`, `club.ts`, `bitcoin.ts`, `notifications.ts`: types for deleted features, still re-exported from `types/index.ts`.
+- `src/i18n/locales/*`: many keys for deleted screens. `de/` and `es/` are no longer loaded.
+- `scripts/verify/`: ~80 scripts, most for deleted features.
+- Oversized files (`SimpleRunTracker`, `LocalWorkoutStorageService`, `healthKitService`, `WorkoutDetailModal`): over the 500-line limit; split only when a bug forces it.
+- `src/services/auth/__tests__/UnifiedSigningService.test.ts`: 7 tests fail (not touched by Phase 3).
 
 ## Deferred (not bugs)
 
-These are deliberate Phase 1 gaps, not defects. Do not "fix" them without checking the design doc first.
+These are deliberate gaps, not defects.
 
-- **NIP-46 bunker login** — no code exists yet anywhere in `src/`. Amber (Android) is the only real external-signer path today; anonymous `Start` still works on both platforms and remains the hero action.
-- **Login screen inversion** — Amber/bunker become the headline and `Start` moves under Advanced only once bunker login ships. Today's login screen is unchanged from before Phase 1.
-- **MCP tab** — parked, undecided. The old unrendered `AgentSkillSection`/`AgentSkillSetupModal` were deleted in Phase 2.
-- **WOT reward selection** — outside the app entirely. It runs as a Claude Code skill (see `runstr-fitness` skill) against public 1301 notes.
-- **Split voice announcements** — a known bug, tracked separately from this simplification. Not touched here.
+- **NIP-46 bunker login** — no code exists yet anywhere in `src/`. Amber (Android) is the only real external-signer path today; anonymous `Start` still works on both platforms and remains the hero action. This is the one real gap in "sign in with Nostr" on iOS.
+- **Login screen inversion** — Amber/bunker become the headline and `Start` moves under Advanced only once bunker login ships.
+- **Split voice announcements** — a known bug, tracked separately. Not touched here.
 
 ## Known limitations
 
@@ -51,7 +74,7 @@ Running only, in the tracker and in history. Apple Health and Health Connect sti
 ## Integrations
 
 - **Apple Health** (iOS) and **Health Connect** (Android) — foreground sync into local history (background sync removed in Phase 2).
-- **MCP** — planned, not built. See "Deferred" above.
+- **AI agents** — no in-app integration beyond copying the npub; the `runstr-fitness` skill reads public 1301 notes from relays.
 
 ## Key Technologies
 
@@ -59,7 +82,7 @@ Running only, in the tracker and in history. Apple Health and Health Connect sti
 - **Data Store**: Local AsyncStorage is the source of truth for history. Relays are the only backend: public 1301 notes plus the private encrypted 30078 backup. No Supabase.
 - **Identity**: Nostr via NDK (auth, profiles, publishing, relay backfill) — now a visible, named part of the product, not a hidden layer.
 - **Rewards**: Not in the app. The external "runstr-zapper" (separate repo) rewards users from public 1301 notes on Nostr feeds.
-- **State**: Zustand + AsyncStorage (local-first, cache-first)
+- **State**: React context + AsyncStorage (local-first, cache-first). No Zustand stores remain.
 
 ## Nostr Usage
 
@@ -106,20 +129,20 @@ src/
 │   ├── backup/       # Chunked encrypted 30078 backup + restore
 │   ├── fitness/      # Local workout storage, HealthKit, Health Connect, 1301 import
 │   └── activity/     # GPS tracking, splits, step counting
-├── store/           # Zustand state management
 ├── types/           # TypeScript definitions
 └── utils/           # Helper functions
 ```
 
 ## App Flow
 
-The one loop: log in → track a run → it becomes a kind 1301 note on relays.
+Log in → track a run → it becomes a kind 1301 note on relays → your AI agent can read it.
 
 1. **Auth (anonymous-first):** Tap "Start" — no login required. Optional "Advanced" login with nsec or Amber. NIP-46 bunker login does not exist yet — see Deferred above.
 2. **Track:** The tracker opens directly on running. GPS tracks the run; Apple Health / Health Connect import other workouts on foreground sync, unshown.
 3. **Publish:** Finishing a run auto-publishes it as a kind 1301 note to relays; the summary shows whether it published, with Retry on failure (1301 is the only format). Runs not yet on Nostr can be published from History. The encrypted 30078 backup updates 3 minutes later.
 4. **History:** Local AsyncStorage renders immediately. On login, the encrypted backup restores once per install (nsec users), then `Nostr1301ImportService` backfills relay history (throttled to once per 6 hours) — see "Phase 2" and "Known limitations" above for the dedup, relay-coverage, and Amber caveats.
-5. **Rewards:** Not in the app. The external zapper rewards users from their public 1301 notes on Nostr feeds.
+5. **Share with an AI agent:** Settings > Nostr Keys copies a prompt with the npub; the agent reads the published runs with the `runstr-fitness` skill.
+6. **Rewards:** Not in the app. The external zapper rewards users from their public 1301 notes on Nostr feeds.
 
 ## Git Workflow
 

@@ -211,25 +211,9 @@ export const ExportDataModal: React.FC<ExportDataModalProps> = ({
                     {stats?.workoutCount || 0} workouts
                   </Text>
                 </View>
-                {(stats?.habitCount || 0) > 0 && (
-                  <View style={styles.statRow}>
-                    <Ionicons name="checkmark-circle-outline" size={18} color={theme.colors.orangeBright} />
-                    <Text style={styles.statText}>
-                      {stats?.habitCount} habits (with streaks)
-                    </Text>
-                  </View>
-                )}
-                {(stats?.journalCount || 0) > 0 && (
-                  <View style={styles.statRow}>
-                    <Ionicons name="journal-outline" size={18} color={theme.colors.orangeBright} />
-                    <Text style={styles.statText}>
-                      {stats?.journalCount} journal entries
-                    </Text>
-                  </View>
-                )}
                 {stats?.dateRange.oldest && stats?.dateRange.newest && (
                   <View style={styles.dateRangeRow}>
-                    <Ionicons name="calendar-outline" size={16} color="#666" />
+                    <Ionicons name="calendar-outline" size={16} color={theme.colors.textDark} />
                     <Text style={styles.dateRangeText}>
                       {formatDate(stats.dateRange.oldest)} - {formatDate(stats.dateRange.newest)}
                     </Text>
@@ -252,7 +236,7 @@ export const ExportDataModal: React.FC<ExportDataModalProps> = ({
                     <Ionicons
                       name={selectedRelays.has(relay) ? 'checkbox' : 'square-outline'}
                       size={22}
-                      color={selectedRelays.has(relay) ? theme.colors.orangeBright : '#666'}
+                      color={selectedRelays.has(relay) ? theme.colors.orangeBright : theme.colors.textDark}
                     />
                     <Text style={styles.relayUrl}>{relay}</Text>
                   </TouchableOpacity>
@@ -266,7 +250,7 @@ export const ExportDataModal: React.FC<ExportDataModalProps> = ({
                       value={customRelay}
                       onChangeText={setCustomRelay}
                       placeholder="wss://relay.example.com"
-                      placeholderTextColor="#666"
+                      placeholderTextColor={theme.colors.textDark}
                       autoCapitalize="none"
                       autoCorrect={false}
                       keyboardType="url"
@@ -320,10 +304,10 @@ export const ExportDataModal: React.FC<ExportDataModalProps> = ({
               activeOpacity={0.8}
             >
               {isExporting ? (
-                <ActivityIndicator size="small" color="#000" />
+                <ActivityIndicator size="small" color={theme.colors.accentText} />
               ) : (
                 <>
-                  <Ionicons name="cloud-upload-outline" size={20} color="#000" />
+                  <Ionicons name="cloud-upload-outline" size={20} color={theme.colors.accentText} />
                   <Text style={styles.exportButtonText}>Export Now</Text>
                 </>
               )}
@@ -332,7 +316,7 @@ export const ExportDataModal: React.FC<ExportDataModalProps> = ({
             {/* In-modal error display (toast renders behind pageSheet modal) */}
             {exportError && (
               <View style={styles.inlineMessage}>
-                <Ionicons name="alert-circle" size={16} color="#FF6B00" />
+                <Ionicons name="alert-circle" size={16} color={theme.colors.error} />
                 <Text style={styles.inlineErrorText}>{exportError}</Text>
               </View>
             )}
@@ -340,7 +324,7 @@ export const ExportDataModal: React.FC<ExportDataModalProps> = ({
             {/* In-modal success display */}
             {exportSuccess && (
               <View style={styles.inlineMessage}>
-                <Ionicons name="checkmark-circle" size={16} color="#FF9D42" />
+                <Ionicons name="checkmark-circle" size={16} color={theme.colors.orangeBright} />
                 <Text style={styles.inlineSuccessText}>{exportSuccess}</Text>
               </View>
             )}
@@ -354,7 +338,7 @@ export const ExportDataModal: React.FC<ExportDataModalProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000',
+    backgroundColor: theme.colors.background,
   },
 
   // Header
@@ -365,7 +349,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#1a1a1a',
+    borderBottomColor: theme.colors.border,
   },
   headerTitle: {
     fontSize: 18,
@@ -385,7 +369,7 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: 12,
     fontSize: 14,
-    color: '#666',
+    color: theme.colors.textDark,
   },
 
   // Scroll
@@ -412,10 +396,10 @@ const styles = StyleSheet.create({
 
   // Stats Card
   statsCard: {
-    backgroundColor: '#0a0a0a',
+    backgroundColor: theme.colors.cardBackground,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#1a1a1a',
+    borderColor: theme.colors.border,
     padding: 16,
   },
   statRow: {
@@ -435,19 +419,19 @@ const styles = StyleSheet.create({
     marginTop: 8,
     paddingTop: 12,
     borderTopWidth: 1,
-    borderTopColor: '#1a1a1a',
+    borderTopColor: theme.colors.border,
   },
   dateRangeText: {
     fontSize: 13,
-    color: '#888',
+    color: theme.colors.textMuted,
   },
 
   // Relays Card
   relaysCard: {
-    backgroundColor: '#0a0a0a',
+    backgroundColor: theme.colors.cardBackground,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#1a1a1a',
+    borderColor: theme.colors.border,
     padding: 12,
   },
   relayRow: {
@@ -456,7 +440,7 @@ const styles = StyleSheet.create({
     gap: 12,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#1a1a1a',
+    borderBottomColor: theme.colors.border,
   },
   relayUrl: {
     flex: 1,
@@ -482,7 +466,7 @@ const styles = StyleSheet.create({
   },
   relayInput: {
     flex: 1,
-    backgroundColor: '#1a1a1a',
+    backgroundColor: theme.colors.surface,
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 10,
@@ -515,7 +499,7 @@ const styles = StyleSheet.create({
   lastBackupText: {
     textAlign: 'center',
     fontSize: 12,
-    color: '#666',
+    color: theme.colors.textDark,
     marginBottom: 16,
   },
 
@@ -535,7 +519,7 @@ const styles = StyleSheet.create({
   exportButtonText: {
     fontSize: 16,
     fontWeight: theme.typography.weights.bold,
-    color: '#000',
+    color: theme.colors.accentText,
   },
 
   // Inline messages (visible inside modal)
@@ -549,13 +533,13 @@ const styles = StyleSheet.create({
   inlineErrorText: {
     flex: 1,
     fontSize: 13,
-    color: '#FF6B00',
+    color: theme.colors.error,
     lineHeight: 18,
   },
   inlineSuccessText: {
     flex: 1,
     fontSize: 13,
-    color: '#FF9D42',
+    color: theme.colors.orangeBright,
     lineHeight: 18,
   },
 });

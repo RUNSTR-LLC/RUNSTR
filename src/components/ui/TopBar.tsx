@@ -1,7 +1,6 @@
 /**
- * TopBar — shared top bar for the three main tabs (Dashboard, Social,
- * Leaderboard). Workout-history (clock) on the left, Settings (hamburger) on
- * the right. Kept identical across tabs so global nav feels consistent.
+ * TopBar — Home's top bar. Run history (clock) on the left, Settings
+ * (hamburger) on the right.
  */
 
 import React, { useCallback } from 'react';
@@ -10,20 +9,10 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { theme } from '../../styles/theme';
-import { createNavigationHandlers } from '../../navigation/navigationHandlers';
-
-interface TopBarProps {
-  /**
-   * Override the menu (Settings) action. Defaults to opening Settings with the
-   * standard support / sign-out handlers. The Dashboard passes its own richer
-   * handler; Social/Leaderboard use the default.
-   */
-  onMenuPress?: () => void;
-}
 
 const HIT_SLOP = { top: 12, bottom: 12, left: 12, right: 12 };
 
-export const TopBar: React.FC<TopBarProps> = ({ onMenuPress }) => {
+export const TopBar: React.FC = () => {
   const navigation = useNavigation<any>();
 
   const handleHistoryPress = useCallback(async () => {
@@ -32,18 +21,8 @@ export const TopBar: React.FC<TopBarProps> = ({ onMenuPress }) => {
   }, [navigation]);
 
   const handleMenuPress = useCallback(() => {
-    if (onMenuPress) {
-      onMenuPress();
-      return;
-    }
-    const handlers = createNavigationHandlers();
-    navigation.navigate('Settings', {
-      onHelp: () => handlers.handleHelp(navigation),
-      onContactSupport: () => handlers.handleContactSupport(navigation),
-      onPrivacyPolicy: () => handlers.handlePrivacyPolicy(navigation),
-      onSignOut: () => handlers.handleSignOut(navigation),
-    });
-  }, [navigation, onMenuPress]);
+    navigation.navigate('Settings');
+  }, [navigation]);
 
   return (
     <View style={styles.bar}>
@@ -52,7 +31,7 @@ export const TopBar: React.FC<TopBarProps> = ({ onMenuPress }) => {
         onPress={handleHistoryPress}
         hitSlop={HIT_SLOP}
         accessibilityRole="button"
-        accessibilityLabel="Workout history"
+        accessibilityLabel="Run history"
       >
         <Ionicons name="time-outline" size={24} color={theme.colors.text} />
       </TouchableOpacity>

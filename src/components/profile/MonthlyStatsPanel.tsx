@@ -1,6 +1,6 @@
 /**
  * MonthlyStatsPanel Component
- * Expandable stats panel showing detailed monthly workout insights
+ * Expandable stats panel for one month of runs
  * Matches RUNSTR orange/gold theme with dark background
  */
 
@@ -8,6 +8,7 @@ import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../styles/theme';
+import { useUnitPreference } from '../../hooks/useUnitPreference';
 import type { MonthlyStats } from '../../services/fitness/MonthlyStatsCalculator';
 
 interface MonthlyStatsPanelProps {
@@ -17,13 +18,15 @@ interface MonthlyStatsPanelProps {
 export const MonthlyStatsPanel: React.FC<MonthlyStatsPanelProps> = ({
   stats,
 }) => {
+  const { isMetric } = useUnitPreference();
+
   /**
    * Format distance (meters to km)
    */
-  const formatDistance = (meters: number): string => {
-    if (meters < 1000) return `${meters.toFixed(0)}m`;
-    return `${(meters / 1000).toFixed(1)}km`;
-  };
+  const formatDistance = (meters: number): string =>
+    isMetric
+      ? `${(meters / 1000).toFixed(1)} km`
+      : `${(meters * 0.000621371).toFixed(1)} mi`;
 
   /**
    * Format duration (seconds to readable time)
@@ -36,13 +39,6 @@ export const MonthlyStatsPanel: React.FC<MonthlyStatsPanelProps> = ({
   };
 
   /**
-   * Format activity type for display
-   */
-  const formatActivityType = (type: string): string => {
-    return type.charAt(0).toUpperCase() + type.slice(1);
-  };
-
-  /**
    * Render comparison indicator (↑/↓ with percentage)
    */
   const renderComparison = (change: number) => {
@@ -52,7 +48,7 @@ export const MonthlyStatsPanel: React.FC<MonthlyStatsPanelProps> = ({
 
     const isPositive = change > 0;
     const icon = isPositive ? '↑' : '↓';
-    const color = isPositive ? '#FF9D42' : '#CC7A33';
+    const color = isPositive ? theme.colors.orangeBright : theme.colors.textMuted;
 
     return (
       <Text style={[styles.comparisonText, { color }]}>
@@ -96,34 +92,32 @@ export const MonthlyStatsPanel: React.FC<MonthlyStatsPanelProps> = ({
       <View style={styles.statsGrid}>
         {/* Active Days */}
         <View style={styles.statCard}>
-          <Ionicons name="calendar-outline" size={20} color="#FF9D42" />
+          <Ionicons name="calendar-outline" size={20} color={theme.colors.orangeBright} />
           <Text style={styles.statValue}>{stats.activeDays}</Text>
           <Text style={styles.statLabel}>Active Days</Text>
         </View>
 
         {/* Average Distance */}
         <View style={styles.statCard}>
-          <Ionicons name="analytics-outline" size={20} color="#FF9D42" />
+          <Ionicons name="analytics-outline" size={20} color={theme.colors.orangeBright} />
           <Text style={styles.statValue}>
             {formatDistance(stats.avgDistance)}
           </Text>
           <Text style={styles.statLabel}>Avg Distance</Text>
         </View>
 
-        {/* Most Common Activity */}
+        {/* Total Time */}
         <View style={styles.statCard}>
-          <Ionicons name="fitness-outline" size={20} color="#FF9D42" />
+          <Ionicons name="time-outline" size={20} color={theme.colors.orangeBright} />
           <Text style={styles.statValue}>
-            {formatActivityType(stats.mostCommonActivity)}
+            {formatDuration(stats.totalDuration)}
           </Text>
-          <Text style={styles.statLabel}>
-            {stats.activityBreakdown[0]?.percentage.toFixed(0)}% of workouts
-          </Text>
+          <Text style={styles.statLabel}>Total Time</Text>
         </View>
 
         {/* Best Workout */}
         <View style={styles.statCard}>
-          <Ionicons name="trophy-outline" size={20} color="#FF9D42" />
+          <Ionicons name="trophy-outline" size={20} color={theme.colors.orangeBright} />
           <Text style={styles.statValue}>
             {stats.bestWorkout.type === 'distance'
               ? formatDistance(stats.bestWorkout.value)
@@ -132,7 +126,7 @@ export const MonthlyStatsPanel: React.FC<MonthlyStatsPanelProps> = ({
               : `${stats.bestWorkout.value.toFixed(0)} cal`}
           </Text>
           <Text style={styles.statLabel}>
-            Best {formatActivityType(stats.bestWorkout.type)}
+            {stats.bestWorkout.type === 'distance' ? 'Longest Run' : 'Best Run'}
           </Text>
         </View>
       </View>
@@ -143,7 +137,7 @@ export const MonthlyStatsPanel: React.FC<MonthlyStatsPanelProps> = ({
           <Text style={styles.comparisonTitle}>vs Last Month</Text>
           <View style={styles.comparisonRow}>
             <View style={styles.comparisonItem}>
-              <Text style={styles.comparisonLabel}>Workouts</Text>
+              <Text style={styles.comparisonLabel}>Runs</Text>
               {renderComparison(stats.comparison.workoutChange)}
             </View>
             <View style={styles.comparisonItem}>
@@ -171,10 +165,10 @@ export const MonthlyStatsPanel: React.FC<MonthlyStatsPanelProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: '#0a0a0a',
+    backgroundColor: theme.colors.cardBackground,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#1a1a1a',
+    borderColor: theme.colors.border,
     padding: 16,
     marginTop: 8,
   },
@@ -189,10 +183,10 @@ const styles = StyleSheet.create({
   statCard: {
     flex: 1,
     minWidth: '45%',
-    backgroundColor: '#000000',
+    backgroundColor: theme.colors.background,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#1a1a1a',
+    borderColor: theme.colors.border,
     padding: 12,
     alignItems: 'center',
     gap: 4,
@@ -201,14 +195,14 @@ const styles = StyleSheet.create({
   statValue: {
     fontSize: 16,
     fontWeight: theme.typography.weights.semiBold,
-    color: '#FFB366', // Light orange
+    color: theme.colors.text, // Light orange
     marginTop: 4,
   },
 
   statLabel: {
     fontSize: 11,
     fontWeight: theme.typography.weights.medium,
-    color: '#CC7A33', // Muted orange
+    color: theme.colors.textMuted, // Muted orange
     textAlign: 'center',
   },
 
@@ -217,13 +211,13 @@ const styles = StyleSheet.create({
     marginTop: 16,
     paddingTop: 16,
     borderTopWidth: 1,
-    borderTopColor: '#1a1a1a',
+    borderTopColor: theme.colors.border,
   },
 
   comparisonTitle: {
     fontSize: 12,
     fontWeight: theme.typography.weights.semiBold,
-    color: '#FF9D42', // Bright orange
+    color: theme.colors.orangeBright, // Bright orange
     marginBottom: 8,
     textAlign: 'center',
   },
@@ -241,7 +235,7 @@ const styles = StyleSheet.create({
   comparisonLabel: {
     fontSize: 10,
     fontWeight: theme.typography.weights.medium,
-    color: '#CC7A33', // Muted orange
+    color: theme.colors.textMuted, // Muted orange
   },
 
   comparisonText: {
@@ -252,7 +246,7 @@ const styles = StyleSheet.create({
   comparisonNeutral: {
     fontSize: 14,
     fontWeight: theme.typography.weights.semiBold,
-    color: '#999999',
+    color: theme.colors.textMuted,
   },
 
   // Weekly Breakdown
@@ -260,13 +254,13 @@ const styles = StyleSheet.create({
     marginTop: 16,
     paddingTop: 16,
     borderTopWidth: 1,
-    borderTopColor: '#1a1a1a',
+    borderTopColor: theme.colors.border,
   },
 
   weeklyTitle: {
     fontSize: 12,
     fontWeight: theme.typography.weights.semiBold,
-    color: '#FF9D42', // Bright orange
+    color: theme.colors.orangeBright, // Bright orange
     marginBottom: 12,
     textAlign: 'center',
   },
@@ -296,7 +290,7 @@ const styles = StyleSheet.create({
   weeklyBarLabel: {
     fontSize: 10,
     fontWeight: theme.typography.weights.medium,
-    color: '#CC7A33', // Muted orange
+    color: theme.colors.textMuted, // Muted orange
     marginTop: 4,
   },
 });

@@ -10,12 +10,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { OstrichRefreshScrollView } from '../components/ui/OstrichRefreshScrollView';
 import { theme } from '../styles/theme';
 import { TexturedBackground } from '../components/ui/TexturedBackground';
-import { ProfileScreenData } from '../types';
+import type { User } from '../types';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import Toast from 'react-native-toast-message';
 import { NostrFetchLogger } from '../utils/NostrFetchLogger';
-import { MusicPlayerPreferencesService } from '../services/music/MusicPlayerPreferencesService';
-import { HeaderMusicControls } from '../components/music/HeaderMusicControls';
 import { ProfileHero } from '../components/profile/ProfileHero';
 import { ScreenErrorBoundary } from '../components/ui/ScreenErrorBoundary';
 import { TopBar } from '../components/ui/TopBar';
@@ -24,42 +22,19 @@ import { PermissionRequestModal } from '../components/permissions/PermissionRequ
 import { RunningTrackerScreen } from './activity/RunningTrackerScreen';
 
 interface ProfileScreenProps {
-  data: ProfileScreenData;
-  isLoadingTeam?: boolean;
-  isLoadingProfile?: boolean;
-  onNavigateToTeam: () => void;
-  onNavigateToTeamDiscovery?: () => void;
-  onViewCurrentTeam?: () => void;
-  onEditProfile?: () => void;
-  onSend?: () => void;
-  onReceive?: () => void;
-  onWalletHistory?: () => void;
-  onSyncSourcePress?: (provider: string) => void;
-  onHelp?: () => void;
-  onContactSupport?: () => void;
-  onPrivacyPolicy?: () => void;
-  onSignOut?: () => void;
-  onRefresh?: () => void;
+  user: User;
+  onRefresh?: () => void | Promise<void>;
 }
 
-const ProfileScreenComponent: React.FC<ProfileScreenProps> = ({
-  data, onNavigateToTeamDiscovery, onViewCurrentTeam,
-  onHelp, onContactSupport, onPrivacyPolicy, onSignOut, onRefresh,
-}) => {
+const ProfileScreenComponent: React.FC<ProfileScreenProps> = ({ user, onRefresh }) => {
   const navigation = useNavigation<any>();
 
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [musicPlayerHeaderEnabled, setMusicPlayerHeaderEnabled] = useState(false);
   const [isWorkoutActive, setIsWorkoutActive] = useState(false);
 
   // Location permission: null until the first check resolves, so the location gate never flashes
   const [permissionsReady, setPermissionsReady] = useState<boolean | null>(null);
   const [showPermissionModal, setShowPermissionModal] = useState(false);
-
-  // Refresh the music header preference on focus
-  useFocusEffect(useCallback(() => {
-    MusicPlayerPreferencesService.isMusicPlayerHeaderEnabled().then(setMusicPlayerHeaderEnabled);
-  }, []));
 
   // Silent permission check — re-runs on focus so revoking in Settings re-gates the UI
   useFocusEffect(useCallback(() => {
@@ -69,13 +44,6 @@ const ProfileScreenComponent: React.FC<ProfileScreenProps> = ({
     });
     return () => { isMounted = false; };
   }, []));
-
-  const handleSettingsPress = useCallback(() => {
-    navigation.navigate('Settings', {
-      currentTeam: data.currentTeam, onNavigateToTeamDiscovery,
-      onViewCurrentTeam, onHelp, onContactSupport, onPrivacyPolicy, onSignOut,
-    });
-  }, [navigation, data.currentTeam, onNavigateToTeamDiscovery, onViewCurrentTeam, onHelp, onContactSupport, onPrivacyPolicy, onSignOut]);
 
   const handleRefresh = useCallback(async () => {
     NostrFetchLogger.start('ProfileScreen.pullToRefresh');
@@ -141,13 +109,7 @@ const ProfileScreenComponent: React.FC<ProfileScreenProps> = ({
       <TexturedBackground edges={[]}>
         {/* Header — hidden during active workout */}
       {!isWorkoutActive && (
-        musicPlayerHeaderEnabled ? (
-          <View style={styles.header}>
-            <HeaderMusicControls onSettingsPress={handleSettingsPress} />
-          </View>
-        ) : (
-          <TopBar onMenuPress={handleSettingsPress} />
-        )
+        <TopBar />
       )}
 
       {/* Owner view — same container + scroll wrapper whether workout is active
@@ -165,7 +127,7 @@ const ProfileScreenComponent: React.FC<ProfileScreenProps> = ({
           >
             {!isWorkoutActive && (
               <View style={styles.sectionGap}>
-                <ProfileHero user={data.user} onEditPress={handleEditPress} />
+                <ProfileHero user={user} onEditPress={handleEditPress} />
               </View>
             )}
 
@@ -196,15 +158,6 @@ const ProfileScreenComponent: React.FC<ProfileScreenProps> = ({
 };
 
 const styles = StyleSheet.create({
-  header: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 16, paddingVertical: 12,
-    borderBottomWidth: 1, borderBottomColor: theme.colors.border, zIndex: 10,
-  },
-  headerSpacer: { flex: 1 },
-  headerButton: { padding: 4 },
-  content: { flex: 1 },
-  scrollContent: { flexGrow: 1, paddingHorizontal: 16, paddingBottom: 32 },
   ownerContent: { flex: 1, paddingHorizontal: 16, paddingBottom: 16 },
   ownerScroll: { flex: 1 },
   ownerScrollContent: { flexGrow: 1, paddingTop: 8 },

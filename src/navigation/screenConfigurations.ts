@@ -7,34 +7,11 @@
  */
 
 import { NativeStackNavigationOptions } from '@react-navigation/native-stack';
-
-// Screen-specific configurations for native stack
-export const screenConfigurations = {
-  // Main Team Screen - no animation for instant load
-  Team: {
-    animation: 'none',
-    headerShown: false,
-  } as NativeStackNavigationOptions,
-
-  // Home Screen - slide from right (default iOS behavior)
-  Home: {
-    animation: 'slide_from_right',
-    headerShown: false,
-    contentStyle: { backgroundColor: '#000' },
-  } as NativeStackNavigationOptions,
-
-  // Wallet Screen - slide from right
-  Wallet: {
-    animation: 'slide_from_right',
-    headerShown: false,
-    contentStyle: { backgroundColor: '#000' },
-  } as NativeStackNavigationOptions,
-
-};
+import { theme } from '../styles/theme';
 
 // Default navigator options for native stack
 export const defaultScreenOptions: NativeStackNavigationOptions = {
   headerShown: false,
-  contentStyle: { backgroundColor: '#000' },
+  contentStyle: { backgroundColor: theme.colors.background },
   animation: 'slide_from_right',
 };

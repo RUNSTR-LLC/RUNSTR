@@ -220,7 +220,7 @@ export const UnifiedWorkoutsTab: React.FC<UnifiedWorkoutsTabProps> = ({
 
   const handleDeleteWorkout = async (workoutId: string) => {
     setAlertConfig({
-      title: 'Delete Workout', message: 'Are you sure? This cannot be undone.',
+      title: 'Delete run?', message: 'This removes the run from this phone. A copy already published to Nostr stays there.',
       buttons: [
         { text: 'Cancel', style: 'cancel' },
         { text: 'Delete', style: 'destructive', onPress: async () => {
@@ -255,7 +255,7 @@ export const UnifiedWorkoutsTab: React.FC<UnifiedWorkoutsTabProps> = ({
           }}
           delayLongPress={400}
         >
-          <EnhancedWorkoutCard workout={workout} hideActions={true} />
+          <EnhancedWorkoutCard workout={workout} />
           <View style={styles.workoutActions}>
             {onNostr ? (
               <View style={styles.nostrStatus}>
@@ -269,10 +269,10 @@ export const UnifiedWorkoutsTab: React.FC<UnifiedWorkoutsTabProps> = ({
                 disabled={isPosting}
               >
                 {isPosting ? (
-                  <ActivityIndicator size="small" color="#000" />
+                  <ActivityIndicator size="small" color={theme.colors.accentText} />
                 ) : (
                   <>
-                    <Ionicons name="paper-plane-outline" size={16} color="#000" />
+                    <Ionicons name="paper-plane-outline" size={16} color={theme.colors.accentText} />
                     <Text style={styles.postButtonText}>Publish to Nostr</Text>
                   </>
                 )}
@@ -371,7 +371,7 @@ export const UnifiedWorkoutsTab: React.FC<UnifiedWorkoutsTabProps> = ({
       <WorkoutActionSheet
         visible={actionSheetWorkout !== null}
         onClose={() => setActionSheetWorkout(null)}
-        title="Workout"
+        title="Run"
         actions={buildWorkoutActions(actionSheetWorkout)}
       />
 
@@ -398,7 +398,7 @@ export const UnifiedWorkoutsTab: React.FC<UnifiedWorkoutsTabProps> = ({
     if (canDelete) {
       actions.push({
         id: 'delete',
-        label: 'Delete Workout',
+        label: 'Delete run',
         icon: 'trash-outline',
         destructive: true,
         onPress: () => handleDeleteWorkout(workout.id),
@@ -445,13 +445,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center', padding: 12, borderRadius: 8, gap: 8,
   },
   postButton: { backgroundColor: theme.colors.text, flex: 1.5 },
-  postButtonText: { color: '#000', fontSize: 14, fontWeight: '600' },
+  postButtonText: { color: theme.colors.accentText, fontSize: 14, fontWeight: '600' },
   nostrStatus: {
     flex: 1.5, flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 4,
   },
   nostrStatusText: { color: theme.colors.textMuted, fontSize: 13, fontWeight: '500' },
   deleteButton: {
-    backgroundColor: '#111111',
+    backgroundColor: theme.colors.cardBackground,
     borderWidth: 1, borderColor: theme.colors.border, flex: 1,
   },
   emptyState: { padding: 32, alignItems: 'center', marginTop: 32, margin: 16 },

@@ -128,8 +128,6 @@ export const ImportDataModal: React.FC<ImportDataModalProps> = ({
 
       const parts: string[] = [];
       if (totalWorkouts > 0) parts.push(`${totalWorkouts} workouts`);
-      if (totalHabits > 0) parts.push(`${totalHabits} habits`);
-      if (totalJournal > 0) parts.push(`${totalJournal} journal entries`);
 
       Toast.show({
         type: 'success',
@@ -163,9 +161,9 @@ export const ImportDataModal: React.FC<ImportDataModalProps> = ({
         return (
           <View style={styles.centerContainer}>
             <ActivityIndicator size="large" color={theme.colors.orangeBright} />
-            <Text style={styles.statusText}>Searching for data...</Text>
+            <Text style={styles.statusText}>Looking for your runs...</Text>
             <Text style={styles.statusSubtext}>
-              Checking relays for backups and workout history
+              Checking Nostr relays for your backup and published runs
             </Text>
           </View>
         );
@@ -174,18 +172,18 @@ export const ImportDataModal: React.FC<ImportDataModalProps> = ({
         return (
           <View style={styles.centerContainer}>
             <Ionicons name="cloud-download-outline" size={48} color={theme.colors.orangeBright} />
-            <Text style={styles.statusText}>Restore Workout History</Text>
+            <Text style={styles.statusText}>Restore your runs</Text>
             <Text style={styles.statusSubtext}>
-              No encrypted backup found, but we can still import{'\n'}
-              your workout notes from Nostr relays.
+              No encrypted backup found. You can still import{'\n'}
+              the runs you published to Nostr.
             </Text>
             <TouchableOpacity
               style={styles.importButton}
               onPress={handleImport}
               activeOpacity={0.8}
             >
-              <Ionicons name="cloud-download-outline" size={20} color="#000" />
-              <Text style={styles.importButtonText}>Import Workouts</Text>
+              <Ionicons name="cloud-download-outline" size={20} color={theme.colors.accentText} />
+              <Text style={styles.importButtonText}>Import published runs</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.retryButton, { marginTop: 12 }]}
@@ -221,22 +219,6 @@ export const ImportDataModal: React.FC<ImportDataModalProps> = ({
                     {backup?.payload.workouts.length || 0} workouts
                   </Text>
                 </View>
-                {(backup?.payload.habits?.length || 0) > 0 && (
-                  <View style={styles.detailRow}>
-                    <Ionicons name="checkmark-circle-outline" size={18} color={theme.colors.orangeBright} />
-                    <Text style={styles.detailText}>
-                      {backup?.payload.habits?.length} habits
-                    </Text>
-                  </View>
-                )}
-                {(backup?.payload.journal?.length || 0) > 0 && (
-                  <View style={styles.detailRow}>
-                    <Ionicons name="journal-outline" size={18} color={theme.colors.orangeBright} />
-                    <Text style={styles.detailText}>
-                      {backup?.payload.journal?.length} journal entries
-                    </Text>
-                  </View>
-                )}
               </View>
             </View>
 
@@ -269,7 +251,7 @@ export const ImportDataModal: React.FC<ImportDataModalProps> = ({
 
             {/* Deduplication Notice */}
             <View style={styles.noticeCard}>
-              <Ionicons name="information-circle-outline" size={16} color="#888" />
+              <Ionicons name="information-circle-outline" size={16} color={theme.colors.textMuted} />
               <Text style={styles.noticeText}>
                 Duplicates will be skipped automatically
               </Text>
@@ -281,7 +263,7 @@ export const ImportDataModal: React.FC<ImportDataModalProps> = ({
               onPress={handleImport}
               activeOpacity={0.8}
             >
-              <Ionicons name="cloud-download-outline" size={20} color="#000" />
+              <Ionicons name="cloud-download-outline" size={20} color={theme.colors.accentText} />
               <Text style={styles.importButtonText}>Import Data</Text>
             </TouchableOpacity>
           </ScrollView>
@@ -291,9 +273,9 @@ export const ImportDataModal: React.FC<ImportDataModalProps> = ({
         return (
           <View style={styles.centerContainer}>
             <ActivityIndicator size="large" color={theme.colors.orangeBright} />
-            <Text style={styles.statusText}>Restoring workout history...</Text>
+            <Text style={styles.statusText}>Restoring your runs...</Text>
             <Text style={styles.statusSubtext}>
-              Importing backups and workout notes from Nostr
+              Reading your backup and published runs from Nostr
             </Text>
           </View>
         );
@@ -310,18 +292,6 @@ export const ImportDataModal: React.FC<ImportDataModalProps> = ({
                 <Text style={styles.summaryText}>
                   {importResult.workoutsImported} workouts imported
                   {importResult.workoutsSkipped > 0 && ` (${importResult.workoutsSkipped} skipped)`}
-                </Text>
-              )}
-              {importResult && importResult.habitsImported > 0 && (
-                <Text style={styles.summaryText}>
-                  {importResult.habitsImported} habits imported
-                  {importResult.habitsSkipped > 0 && ` (${importResult.habitsSkipped} skipped)`}
-                </Text>
-              )}
-              {importResult && importResult.journalImported > 0 && (
-                <Text style={styles.summaryText}>
-                  {importResult.journalImported} journal entries imported
-                  {importResult.journalSkipped > 0 && ` (${importResult.journalSkipped} skipped)`}
                 </Text>
               )}
             </View>
@@ -391,7 +361,7 @@ export const ImportDataModal: React.FC<ImportDataModalProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000',
+    backgroundColor: theme.colors.background,
   },
 
   // Header
@@ -402,7 +372,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#1a1a1a',
+    borderBottomColor: theme.colors.border,
   },
   headerTitle: {
     fontSize: 18,
@@ -429,7 +399,7 @@ const styles = StyleSheet.create({
   },
   statusSubtext: {
     fontSize: 14,
-    color: '#888',
+    color: theme.colors.textMuted,
     marginTop: 8,
     textAlign: 'center',
     lineHeight: 20,
@@ -482,10 +452,10 @@ const styles = StyleSheet.create({
 
   // Details Card
   detailsCard: {
-    backgroundColor: '#0a0a0a',
+    backgroundColor: theme.colors.cardBackground,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#1a1a1a',
+    borderColor: theme.colors.border,
     padding: 16,
   },
   detailRow: {
@@ -501,10 +471,10 @@ const styles = StyleSheet.create({
 
   // Info Card
   infoCard: {
-    backgroundColor: '#0a0a0a',
+    backgroundColor: theme.colors.cardBackground,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#1a1a1a',
+    borderColor: theme.colors.border,
     padding: 16,
   },
   infoRow: {
@@ -515,7 +485,7 @@ const styles = StyleSheet.create({
   },
   infoLabel: {
     fontSize: 14,
-    color: '#888',
+    color: theme.colors.textMuted,
   },
   infoValue: {
     fontSize: 14,
@@ -527,7 +497,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: '#0a0a0a',
+    backgroundColor: theme.colors.cardBackground,
     borderRadius: 10,
     paddingVertical: 12,
     paddingHorizontal: 14,
@@ -536,7 +506,7 @@ const styles = StyleSheet.create({
   noticeText: {
     flex: 1,
     fontSize: 13,
-    color: '#888',
+    color: theme.colors.textMuted,
   },
 
   // Buttons
@@ -552,7 +522,7 @@ const styles = StyleSheet.create({
   importButtonText: {
     fontSize: 16,
     fontWeight: theme.typography.weights.bold,
-    color: '#000',
+    color: theme.colors.accentText,
   },
   retryButton: {
     flexDirection: 'row',
@@ -580,15 +550,15 @@ const styles = StyleSheet.create({
   doneButtonText: {
     fontSize: 16,
     fontWeight: theme.typography.weights.bold,
-    color: '#000',
+    color: theme.colors.accentText,
   },
 
   // Summary Card
   summaryCard: {
-    backgroundColor: '#0a0a0a',
+    backgroundColor: theme.colors.cardBackground,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#1a1a1a',
+    borderColor: theme.colors.border,
     padding: 16,
     marginTop: 16,
     width: '100%',

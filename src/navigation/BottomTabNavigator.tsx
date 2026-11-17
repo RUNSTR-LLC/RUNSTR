@@ -1,155 +1,44 @@
 /**
- * BottomTabNavigator - Main tab navigation for authenticated users
- * Phase 2 (2026-10-18): the Social and Leaderboard tabs are deleted; the bar
- * is hidden via tabBarStyle, leaving a single Home tab (ProfileScreen) as the
- * app's one visible surface. The tab navigator is kept even with one
- * tab — see the design doc's Tier 2 note on why MainTabs isn't replaced with
+ * BottomTabNavigator - Main navigation for authenticated users
+ * A single Home tab (ProfileScreen) with the tab bar hidden: the app's one
+ * visible surface. The tab navigator is kept even with one tab — see the
+ * simplification design doc's Tier 2 note on why MainTabs isn't replaced with
  * a bare screen.
  */
 
 import React from 'react';
 import { Text, View, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { Ionicons } from '@expo/vector-icons';
-import { useTranslation } from 'react-i18next';
-import * as Haptics from 'expo-haptics';
 import { theme } from '../styles/theme';
-import { FEATURES } from '../config/features';
-import { PerformanceLogger } from '../utils/PerformanceLogger';
-
-// ✅ PERFORMANCE: Load Profile immediately, lazy load others when needed
-// FIX: Loading multiple lazy screens simultaneously was causing freeze on first launch
 import { ProfileScreen } from '../screens/ProfileScreen';
-
-// Data Hooks
 import { useNavigationData } from '../contexts/NavigationDataContext';
 
-// Navigation Handlers
-import { createNavigationHandlers } from './navigationHandlers';
-
-// Types
 export type BottomTabParamList = {
-  Home: { pubkey?: string } | undefined;
-  Social: undefined;
-  Leaderboard: undefined;
+  Home: undefined;
 };
 
 const Tab = createBottomTabNavigator<BottomTabParamList>();
 
-interface BottomTabNavigatorProps {
-  onSignOut?: () => Promise<void>;
-}
-
-export const BottomTabNavigator: React.FC<BottomTabNavigatorProps> = ({
-  onSignOut,
-}) => {
-  // i18n hook for tab labels
-  const { t } = useTranslation(['profile', 'clubs']);
-
-  // Fetch real data for navigation screens
-  const {
-    user,
-    profileData,
-    isLoading,
-    isLoadingTeam,
-    error,
-    refresh,
-    loadWallet,
-    prefetchLeaguesInBackground,
-  } = useNavigationData();
-
-  // Create navigation handlers
-  const handlers = createNavigationHandlers();
-
-  // ✅ PERFORMANCE: Log total blocking time when app is interactive
-  React.useEffect(() => {
-    if (!isLoading && profileData) {
-      console.log('\n🎯 APP IS INTERACTIVE - Performance Summary:');
-      PerformanceLogger.summary();
-      console.log('\n');
-    }
-  }, [isLoading, profileData]);
+export const BottomTabNavigator: React.FC = () => {
+  const { user, error, refresh } = useNavigationData();
 
   return (
     <Tab.Navigator
-      screenListeners={{
-        tabPress: () => {
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        },
-      }}
-      screenOptions={({ route }) => ({
+      screenOptions={{
         headerShown: false,
         tabBarStyle: { display: 'none' as const },
-        tabBarActiveTintColor: theme.colors.text,
-        tabBarInactiveTintColor: theme.colors.textMuted,
-        tabBarShowLabel: false,
-        sceneContainerStyle: { backgroundColor: '#000' },
-        tabBarIcon: ({ focused, color, size }) => {
-          let iconName: keyof typeof Ionicons.glyphMap = 'help-outline';
-
-          if (route.name === 'Home') {
-            iconName = focused ? 'person' : 'person-outline';
-          } else if (route.name === 'Social') {
-            iconName = focused ? 'chatbubbles' : 'chatbubbles-outline';
-          } else if (route.name === 'Leaderboard') {
-            iconName = focused ? 'trophy' : 'trophy-outline';
-          }
-
-          return (
-            <Ionicons
-              name={iconName}
-              size={size || 24}
-              color={color}
-              style={styles.tabIcon}
-            />
-          );
-        },
-      })}
+        sceneStyle: { backgroundColor: theme.colors.background },
+      }}
       initialRouteName="Home"
     >
-      {/* Home Tab */}
-      <Tab.Screen
-        name="Home"
-        options={{
-          title: t('profile:tabDashboard', 'Dashboard'),
-          headerShown: false,
-        }}
-      >
-        {({ navigation }) =>
-          profileData ? (
-            <ProfileScreen
-              data={profileData}
-              isLoadingTeam={isLoadingTeam}
-              isLoadingProfile={isLoading}
-              onNavigateToTeam={() => navigation.navigate('Social')}
-              onNavigateToTeamDiscovery={() => navigation.navigate('Social')}
-              onViewCurrentTeam={() => {
-                if (FEATURES.teams && profileData.currentTeam) {
-                  navigation.navigate('ClubPage', {
-                    clubId: profileData.currentTeam.id,
-                    clubName: profileData.currentTeam.name,
-                  });
-                }
-              }}
-              onEditProfile={handlers.handleEditProfile}
-              onSend={handlers.handleWalletSend}
-              onReceive={handlers.handleWalletReceive}
-              onWalletHistory={handlers.handleWalletHistory}
-              onSyncSourcePress={handlers.handleSyncSourcePress}
-              onHelp={() => handlers.handleHelp(navigation)}
-              onContactSupport={() => handlers.handleContactSupport(navigation)}
-              onPrivacyPolicy={() => handlers.handlePrivacyPolicy(navigation)}
-              onSignOut={
-                onSignOut || (() => handlers.handleSignOut(navigation))
-              }
-              onRefresh={refresh}
-            />
+      <Tab.Screen name="Home">
+        {() =>
+          user ? (
+            <ProfileScreen user={user} onRefresh={refresh} />
           ) : (
             <View style={styles.loadingContainer}>
               <ActivityIndicator size="large" color={theme.colors.accent} />
-              {error && (
-                <Text style={styles.loadingText}>{error}</Text>
-              )}
+              {error && <Text style={styles.loadingText}>{error}</Text>}
               {error && (
                 <TouchableOpacity onPress={refresh} style={styles.retryButton}>
                   <Text style={styles.retryText}>Retry</Text>
@@ -159,72 +48,11 @@ export const BottomTabNavigator: React.FC<BottomTabNavigatorProps> = ({
           )
         }
       </Tab.Screen>
-
     </Tab.Navigator>
   );
 };
 
 const styles = StyleSheet.create({
-  tabBar: {
-    backgroundColor: theme.colors.background, // #000000
-    borderTopWidth: 0, // Remove border to eliminate white line on Android
-    paddingTop: 10,
-    paddingBottom: 10,
-    height: 85,
-    elevation: 0,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0,
-    shadowRadius: 0,
-  },
-
-  tabBarLabel: {
-    fontSize: 12,
-    fontWeight: theme.typography.weights.medium,
-    marginTop: 4,
-  },
-
-  tabIcon: {
-    marginBottom: 2,
-  },
-
-  tabContent: {
-    flex: 1,
-    backgroundColor: theme.colors.background,
-  },
-
-  teamsHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'flex-end',
-    paddingHorizontal: 20,
-    paddingTop: 8,
-    paddingBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
-  },
-
-  headerTitle: {
-    fontSize: 24,
-    fontWeight: theme.typography.weights.bold,
-    color: theme.colors.text,
-  },
-
-  createButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: theme.colors.text,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-
-  createButtonText: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: theme.colors.background,
-    lineHeight: 24,
-  },
-
   loadingContainer: {
     flex: 1,
     backgroundColor: theme.colors.background,
@@ -232,21 +60,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 20,
   },
-
   loadingText: {
     color: theme.colors.text,
     fontSize: 16,
     textAlign: 'center',
+    marginTop: 16,
     marginBottom: 16,
   },
-
   retryButton: {
     paddingHorizontal: 20,
     paddingVertical: 10,
     backgroundColor: theme.colors.border,
     borderRadius: 8,
   },
-
   retryText: {
     color: theme.colors.text,
     fontSize: 14,

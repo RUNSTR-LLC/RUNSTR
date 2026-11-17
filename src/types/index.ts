@@ -21,13 +21,6 @@ export * from './bitcoin';
 // Re-export Notification Types
 export * from './notifications';
 
-// Re-export Team Matching Algorithm Types (from utils/teamMatching)
-export type {
-  TeamMatch,
-  UserPreferences,
-  UserFitnessProfile,
-} from '../utils/teamMatching';
-
 // Navigation Types (for React Navigation)
 export interface RootStackParamList extends Record<string, object | undefined> {
   Home: undefined;

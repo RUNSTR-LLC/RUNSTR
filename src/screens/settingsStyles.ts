@@ -57,7 +57,7 @@ export const settingsStyles = StyleSheet.create({
   subsectionTitle: {
     fontSize: 13,
     fontWeight: theme.typography.weights.semiBold,
-    color: '#FFB366',
+    color: theme.colors.text,
     marginBottom: 12,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
@@ -184,48 +184,6 @@ export const settingsStyles = StyleSheet.create({
     color: theme.colors.textMuted,
   },
 
-  // Language
-  languageSection: {
-    paddingVertical: 8,
-  },
-  languageSectionTitle: {
-    fontSize: 15,
-    fontWeight: theme.typography.weights.semiBold,
-    color: theme.colors.text,
-    marginBottom: 4,
-  },
-  languageSectionSubtitle: {
-    fontSize: 12,
-    color: theme.colors.textMuted,
-    marginBottom: 16,
-  },
-  languageOptions: {
-    gap: 8,
-  },
-  languageOption: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    backgroundColor: '#1a1a1a',
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#2a2a2a',
-  },
-  languageOptionSelected: {
-    borderColor: theme.colors.orangeBright,
-    backgroundColor: 'rgba(255, 157, 66, 0.1)',
-  },
-  languageOptionText: {
-    fontSize: 16,
-    color: theme.colors.text,
-  },
-  languageOptionTextSelected: {
-    fontWeight: theme.typography.weights.semiBold,
-    color: theme.colors.orangeBright,
-  },
-
   // Backup Security Notice
   backupSecurityNotice: {
     flexDirection: 'row',
@@ -291,7 +249,7 @@ export const settingsStyles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 16,
     paddingHorizontal: 16,
-    backgroundColor: '#1a1a1a',
+    backgroundColor: theme.colors.surface,
     borderRadius: 12,
     marginBottom: 8,
     gap: 16,

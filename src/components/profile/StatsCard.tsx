@@ -7,6 +7,7 @@ import { DailyStepCounterService } from '../../services/activity/DailyStepCounte
 import localWorkoutStorage, { type LocalWorkout } from '../../services/fitness/LocalWorkoutStorageService';
 import { isRunningWorkout } from '../../utils/isRunningWorkout';
 import { FEATURES } from '../../config/features';
+import { useUnitPreference } from '../../hooks/useUnitPreference';
 
 interface StatsCardProps {
   userPubkey: string;
@@ -23,23 +24,22 @@ interface PersonalRecords {
   fastest10kSeconds: number;
   fastestHalfSeconds: number;
   fastestMarathonSeconds: number;
-  fastestCycling20kSeconds: number;
-  fastestCycling40kSeconds: number;
-  fastestCycling100kSeconds: number;
-  longestRunKm: number;
-  longestRideKm: number;
-  mostPushups: number;
-  mostPullups: number;
+  longestRunMeters: number;
 }
 
 const M_5K = 5000;
 const M_10K = 10000;
 const M_HALF = 21097;
 const M_MARATHON = 42195;
-const M_CYC_20K = 20000;
-const M_CYC_40K = 40000;
-const M_CYC_100K = 100000;
 const DAILY_STEP_GOAL = 10000;
+
+const EMPTY_RECORDS: PersonalRecords = {
+  fastest5kSeconds: 0,
+  fastest10kSeconds: 0,
+  fastestHalfSeconds: 0,
+  fastestMarathonSeconds: 0,
+  longestRunMeters: 0,
+};
 
 function formatDuration(seconds: number): string {
   if (!seconds || seconds <= 0) return '—';
@@ -52,25 +52,10 @@ function formatDuration(seconds: number): string {
   return `${m}:${String(s).padStart(2, '0')}`;
 }
 
-function formatCount(n: number): string {
-  return n > 0 ? n.toLocaleString() : '—';
-}
-
 export const StatsCard: React.FC<StatsCardProps> = ({ userPubkey, refreshKey = 0 }) => {
+  const { isMetric } = useUnitPreference();
   const [todaySteps, setTodaySteps] = useState<number>(0);
-  const [records, setRecords] = useState<PersonalRecords>({
-    fastest5kSeconds: 0,
-    fastest10kSeconds: 0,
-    fastestHalfSeconds: 0,
-    fastestMarathonSeconds: 0,
-    fastestCycling20kSeconds: 0,
-    fastestCycling40kSeconds: 0,
-    fastestCycling100kSeconds: 0,
-    longestRunKm: 0,
-    longestRideKm: 0,
-    mostPushups: 0,
-    mostPullups: 0,
-  });
+  const [records, setRecords] = useState<PersonalRecords>(EMPTY_RECORDS);
 
   useEffect(() => {
     let cancelled = false;
@@ -100,49 +85,25 @@ export const StatsCard: React.FC<StatsCardProps> = ({ userPubkey, refreshKey = 0
     try {
       const workouts = await localWorkoutStorage.getAllWorkouts();
       const runs = workouts.filter(isRunningWorkout);
-      const rides = workouts.filter((w) => w.type === 'cycling');
 
-      const fastestTimeAtDistance = (list: LocalWorkout[], minMeters: number): number =>
-        list.reduce((best, w) => {
+      const fastestTimeAtDistance = (minMeters: number): number =>
+        runs.reduce((best, w) => {
           if ((w.distance || 0) < minMeters || !(w.duration > 0)) return best;
           return best === 0 || w.duration < best ? w.duration : best;
         }, 0);
 
-      const maxDistance = (list: LocalWorkout[]): number =>
-        list.reduce((max, w) => Math.max(max, w.distance || 0), 0);
-
-      const maxReps = (exercise: 'pushups' | 'pullups'): number =>
-        workouts.reduce(
-          (max, w) =>
-            w.exerciseType === exercise ? Math.max(max, w.reps || 0) : max,
-          0
-        );
-
-      const run5k = fastestTimeAtDistance(runs, M_5K);
-      const run10k = fastestTimeAtDistance(runs, M_10K);
-      const runHalf = fastestTimeAtDistance(runs, M_HALF);
-      const runMarathon = fastestTimeAtDistance(runs, M_MARATHON);
-      const cyc20k = fastestTimeAtDistance(rides, M_CYC_20K);
-      const cyc40k = fastestTimeAtDistance(rides, M_CYC_40K);
-      const cyc100k = fastestTimeAtDistance(rides, M_CYC_100K);
-      const longestRunMeters = maxDistance(runs);
-      const longestRideMeters = maxDistance(rides);
-      const pushupMax = maxReps('pushups');
-      const pullupMax = maxReps('pullups');
+      const longestRunMeters = runs.reduce(
+        (max, w) => Math.max(max, w.distance || 0),
+        0
+      );
 
       if (isCancelled()) return;
       setRecords({
-        fastest5kSeconds: run5k,
-        fastest10kSeconds: run10k,
-        fastestHalfSeconds: runHalf,
-        fastestMarathonSeconds: runMarathon,
-        fastestCycling20kSeconds: cyc20k,
-        fastestCycling40kSeconds: cyc40k,
-        fastestCycling100kSeconds: cyc100k,
-        longestRunKm: longestRunMeters / 1000,
-        longestRideKm: longestRideMeters / 1000,
-        mostPushups: pushupMax,
-        mostPullups: pullupMax,
+        fastest5kSeconds: fastestTimeAtDistance(M_5K),
+        fastest10kSeconds: fastestTimeAtDistance(M_10K),
+        fastestHalfSeconds: fastestTimeAtDistance(M_HALF),
+        fastestMarathonSeconds: fastestTimeAtDistance(M_MARATHON),
+        longestRunMeters,
       });
     } catch (e) {
       console.warn('[StatsCard] Failed to load personal records:', e);
@@ -152,15 +113,10 @@ export const StatsCard: React.FC<StatsCardProps> = ({ userPubkey, refreshKey = 0
   const stepProgress = Math.min(todaySteps / DAILY_STEP_GOAL, 1);
   const stepProgressPercent = Math.round(stepProgress * 100);
 
-  const hasRunning = records.longestRunKm > 0;
-  // Non-running record types (cycling, pushups, pullups) are still imported from
-  // HealthKit/Health Connect, but display is filtered while nonRunningHistory is
-  // off — gate every non-running "has*" flag here so both the dedicated PR block
-  // and the shared Personal Bests rows stay in sync automatically.
-  const hasCycling = records.longestRideKm > 0 && FEATURES.nonRunningHistory;
-  const hasPushups = records.mostPushups > 0 && FEATURES.nonRunningHistory;
-  const hasPullups = records.mostPullups > 0 && FEATURES.nonRunningHistory;
-  const hasAnyBest = hasRunning || hasCycling || hasPushups || hasPullups;
+  const hasRunning = records.longestRunMeters > 0;
+  const longestRun = isMetric
+    ? `${(records.longestRunMeters / 1000).toFixed(1)} km`
+    : `${(records.longestRunMeters * 0.000621371).toFixed(1)} mi`;
 
   const runningRaceStats = [
     { label: '5K', value: formatDuration(records.fastest5kSeconds) },
@@ -169,18 +125,7 @@ export const StatsCard: React.FC<StatsCardProps> = ({ userPubkey, refreshKey = 0
     { label: 'MARATHON', value: formatDuration(records.fastestMarathonSeconds) },
   ];
 
-  const cyclingRaceStats = [
-    { label: '20K', value: formatDuration(records.fastestCycling20kSeconds) },
-    { label: '40K', value: formatDuration(records.fastestCycling40kSeconds) },
-    { label: '100K', value: formatDuration(records.fastestCycling100kSeconds) },
-    {
-      label: 'LONGEST',
-      value:
-        records.longestRideKm > 0
-          ? `${records.longestRideKm.toFixed(1)}km`
-          : '—',
-    },
-  ];
+  if (!hasRunning && !FEATURES.stepTracking) return null;
 
   return (
     <Card style={styles.container}>
@@ -202,11 +147,10 @@ export const StatsCard: React.FC<StatsCardProps> = ({ userPubkey, refreshKey = 0
         </View>
       )}
 
-      {/* Running Race PRs */}
       {hasRunning && (
         <>
           {FEATURES.stepTracking && <View style={styles.divider} />}
-          <Text style={styles.sectionTitle}>RUNNING PERSONAL RECORDS</Text>
+          <Text style={styles.sectionTitle}>PERSONAL RECORDS</Text>
           <View style={styles.raceRow}>
             {runningRaceStats.map((stat) => (
               <View key={stat.label} style={styles.raceCell}>
@@ -221,61 +165,9 @@ export const StatsCard: React.FC<StatsCardProps> = ({ userPubkey, refreshKey = 0
               </View>
             ))}
           </View>
-        </>
-      )}
-
-      {/* Cycling Race PRs */}
-      {hasCycling && (
-        <>
           <View style={styles.divider} />
-          <Text style={styles.sectionTitle}>CYCLING PERSONAL RECORDS</Text>
-          <View style={styles.raceRow}>
-            {cyclingRaceStats.map((stat) => (
-              <View key={stat.label} style={styles.raceCell}>
-                <Text
-                  style={styles.raceValue}
-                  numberOfLines={1}
-                  adjustsFontSizeToFit
-                >
-                  {stat.value}
-                </Text>
-                <Text style={styles.raceLabel}>{stat.label}</Text>
-              </View>
-            ))}
-          </View>
-        </>
-      )}
-
-      {/* Personal Bests */}
-      {hasAnyBest && (
-        <>
-          <View style={styles.divider} />
-          <Text style={styles.sectionTitle}>PERSONAL BESTS</Text>
           <View style={styles.bestList}>
-            {hasRunning && (
-              <BestRow
-                label="Longest Run"
-                value={`${records.longestRunKm.toFixed(1)} km`}
-              />
-            )}
-            {hasCycling && (
-              <BestRow
-                label="Longest Ride"
-                value={`${records.longestRideKm.toFixed(1)} km`}
-              />
-            )}
-            {hasPushups && (
-              <BestRow
-                label="Most Pushups"
-                value={formatCount(records.mostPushups)}
-              />
-            )}
-            {hasPullups && (
-              <BestRow
-                label="Most Pull-ups"
-                value={formatCount(records.mostPullups)}
-              />
-            )}
+            <BestRow label="Longest Run" value={longestRun} />
           </View>
         </>
       )}

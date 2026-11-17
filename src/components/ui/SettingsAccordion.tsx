@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { theme } from '../../styles/theme';
 import {
   View,
   Text,
@@ -49,7 +50,7 @@ export const SettingsAccordion: React.FC<SettingsAccordionProps> = ({
         <Ionicons
           name={isExpanded ? 'chevron-up' : 'chevron-down'}
           size={20}
-          color="#FF9D42"
+          color={theme.colors.orangeBright}
         />
       </TouchableOpacity>
 
@@ -60,9 +61,9 @@ export const SettingsAccordion: React.FC<SettingsAccordionProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: '#0a0a0a',
+    backgroundColor: theme.colors.cardBackground,
     borderWidth: 1,
-    borderColor: '#1a1a1a',
+    borderColor: theme.colors.border,
     borderRadius: 12,
     // Spacing is owned by the settings `section` wrapper; avoid double margin.
     marginBottom: 0,
@@ -73,18 +74,18 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: 16,
-    backgroundColor: '#0a0a0a',
+    backgroundColor: theme.colors.cardBackground,
   },
   title: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#FFB366',
+    color: theme.colors.text,
     letterSpacing: 0.5,
     textTransform: 'uppercase',
   },
   content: {
     borderTopWidth: 1,
-    borderTopColor: '#1a1a1a',
+    borderTopColor: theme.colors.border,
     paddingTop: 12,
   },
 });

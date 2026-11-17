@@ -31,12 +31,7 @@ import {
 import { SplitsBar } from '../../components/activity/SplitsBar';
 import { CountdownOverlay } from '../../components/activity/CountdownOverlay';
 // Debug overlays for GPS and step diagnosis
-import { ActivityDebugOverlay } from '../../components/debug/ActivityDebugOverlay';
-import { StepDebugOverlay } from '../../components/debug/StepDebugOverlay';
 
-
-// DEBUG MODE - Set to true for debug APK builds, false for production
-const DEBUG_MODE = false;
 
 // Constants
 const MIN_WORKOUT_DISTANCE_METERS = 10; // Minimum distance to show workout summary
@@ -158,7 +153,7 @@ export const RunningTrackerScreen: React.FC<RunningTrackerScreenProps> = ({
 
           // Show toast notification
           setAlertConfig({
-            title: 'Workout Resumed',
+            title: 'Run resumed',
             message: `Recovered ${(checkpoint.distance / 1000).toFixed(2)} km run that was interrupted.`,
             buttons: [{ text: 'OK', style: 'default' }],
           });
@@ -438,11 +433,6 @@ export const RunningTrackerScreen: React.FC<RunningTrackerScreenProps> = ({
 
       </View>
 
-      {/* Debug Overlay - GPS death diagnosis (only in DEBUG_MODE and while tracking) */}
-      {DEBUG_MODE && isTracking && <ActivityDebugOverlay />}
-
-      {/* Step Debug Overlay - Android-only diagnostic panel */}
-      <StepDebugOverlay />
     </View>
   );
 };

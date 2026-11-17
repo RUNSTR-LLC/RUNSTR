@@ -3,39 +3,21 @@
  */
 
 import React from 'react';
-import {
-  View,
-  Text,
-  Platform,
-  Modal,
-  TouchableOpacity,
-} from 'react-native';
-import { theme } from '../../styles/theme';
+import { View, Text, Platform } from 'react-native';
 import { ThemedSwitch } from '../ui/ThemedSwitch';
 import { Card } from '../ui/Card';
 import { SettingsAccordion } from '../ui/SettingsAccordion';
 import { SettingItem } from './SettingItem';
-import { Ionicons } from '@expo/vector-icons';
 import { settingsStyles as styles } from '../../screens/settingsStyles';
 import { GPSPermissionsDiagnostics } from '../permissions/GPSPermissionsDiagnostics';
-import { StepCountDiagnostics } from '../permissions/StepCountDiagnostics';
-import { defaultActivityService, type DefaultActivity } from '../../services/activity/DefaultActivityService';
 import type { TTSSettings } from '../../services/activity/TTSPreferencesService';
 import { useTranslation } from 'react-i18next';
-import { FEATURES } from '../../config/features';
 
 interface FitnessTrackingSectionProps {
   ttsSettings: TTSSettings;
   onTTSSettingChange: <K extends keyof TTSSettings>(key: K, value: TTSSettings[K]) => void;
   isMetric: boolean;
   onSetUnitSystem: (system: 'metric' | 'imperial') => void;
-  defaultActivity: DefaultActivity;
-  showDefaultActivityPicker: boolean;
-  onSetShowDefaultActivityPicker: (show: boolean) => void;
-  onDefaultActivityChange: (activity: DefaultActivity) => void;
-  // Privacy
-  privateModeEnabled: boolean;
-  onPrivateModeToggle: (value: boolean) => void;
   // Apple Health (iOS)
   healthKitSyncEnabled: boolean;
   healthKitAuthorized: boolean;
@@ -54,12 +36,6 @@ export const FitnessTrackingSection: React.FC<FitnessTrackingSectionProps> = ({
   onTTSSettingChange,
   isMetric,
   onSetUnitSystem,
-  defaultActivity,
-  showDefaultActivityPicker,
-  onSetShowDefaultActivityPicker,
-  onDefaultActivityChange,
-  privateModeEnabled,
-  onPrivateModeToggle,
   healthKitSyncEnabled,
   healthKitAuthorized,
   healthKitLastSync,
@@ -91,33 +67,13 @@ export const FitnessTrackingSection: React.FC<FitnessTrackingSectionProps> = ({
             {/* GPS Permissions Diagnostics (Android only) */}
             {Platform.OS === 'android' && <GPSPermissionsDiagnostics />}
 
-            {/* Step Count Diagnostics (Android only) */}
-            {Platform.OS === 'android' && <StepCountDiagnostics />}
-
-            {/* Privacy Subsection */}
-            {FEATURES.privateMode && (
-              <View style={styles.voiceSubsection}>
-                <Text style={styles.subsectionTitle}>Privacy</Text>
-                <SettingItem
-                  title="Private Mode"
-                  subtitle="Workouts stay on your device. Events and rewards require this to be off."
-                  rightElement={
-                    <ThemedSwitch
-                      value={privateModeEnabled}
-                      onValueChange={onPrivateModeToggle}
-                    />
-                  }
-                />
-              </View>
-            )}
-
             {/* Apple Health Subsection (iOS only) */}
             {Platform.OS === 'ios' && (
               <View style={styles.voiceSubsection}>
                 <Text style={styles.subsectionTitle}>Apple Health</Text>
                 <SettingItem
                   title="Sync Workouts"
-                  subtitle="Automatically sync workouts from Apple Health"
+                  subtitle="Import runs from Apple Health when you open RUNSTR"
                   rightElement={
                     <ThemedSwitch
                       value={healthKitSyncEnabled}
@@ -146,7 +102,7 @@ export const FitnessTrackingSection: React.FC<FitnessTrackingSectionProps> = ({
                   title="Sync Workouts"
                   subtitle={
                     healthConnectAvailable
-                      ? 'Automatically sync workouts from Health Connect'
+                      ? 'Import runs from Health Connect when you open RUNSTR'
                       : 'Health Connect not installed on this device'
                   }
                   rightElement={
@@ -183,7 +139,7 @@ export const FitnessTrackingSection: React.FC<FitnessTrackingSectionProps> = ({
               {/* Enable TTS */}
               <SettingItem
                 title="Enable Voice Announcements"
-                subtitle="Hear workout summaries read aloud"
+                subtitle="Hear run stats read aloud"
                 rightElement={
                   <ThemedSwitch
                     value={ttsSettings.enabled}
@@ -196,8 +152,8 @@ export const FitnessTrackingSection: React.FC<FitnessTrackingSectionProps> = ({
 
               {/* Announce on Summary */}
               <SettingItem
-                title="Workout Summary"
-                subtitle="Announce stats when workout completes"
+                title="Run Summary"
+                subtitle="Announce stats when a run finishes"
                 rightElement={
                   <ThemedSwitch
                     value={ttsSettings.announceOnSummary}
@@ -250,54 +206,6 @@ export const FitnessTrackingSection: React.FC<FitnessTrackingSectionProps> = ({
         </SettingsAccordion>
       </View>
 
-      {/* Default Activity Picker Modal */}
-      <Modal
-        visible={showDefaultActivityPicker}
-        transparent
-        animationType="slide"
-        onRequestClose={() => onSetShowDefaultActivityPicker(false)}
-      >
-        <TouchableOpacity
-          style={styles.modalOverlay}
-          activeOpacity={1}
-          onPress={() => onSetShowDefaultActivityPicker(false)}
-        >
-          <View style={styles.defaultActivityPickerContainer}>
-            <View style={styles.menuHandle} />
-            <Text style={styles.defaultActivityPickerTitle}>Select Default Activity</Text>
-            <Text style={styles.defaultActivityPickerSubtitle}>
-              This activity will open when you tap "Start Workout"
-            </Text>
-            {(['run', 'walk', 'cycle', 'hiking'] as DefaultActivity[]).map((activity) => (
-              <TouchableOpacity
-                key={activity}
-                style={[
-                  styles.defaultActivityOption,
-                  defaultActivity === activity && styles.defaultActivityOptionSelected,
-                ]}
-                onPress={() => onDefaultActivityChange(activity)}
-              >
-                <Ionicons
-                  name={defaultActivityService.getActivityIcon(activity) as keyof typeof Ionicons.glyphMap}
-                  size={24}
-                  color={defaultActivity === activity ? theme.colors.orangeBright : theme.colors.textMuted}
-                />
-                <Text
-                  style={[
-                    styles.defaultActivityOptionText,
-                    defaultActivity === activity && styles.defaultActivityOptionTextSelected,
-                  ]}
-                >
-                  {defaultActivityService.getActivityDisplayName(activity)}
-                </Text>
-                {defaultActivity === activity && (
-                  <Ionicons name="checkmark-circle" size={22} color={theme.colors.success} />
-                )}
-              </TouchableOpacity>
-            ))}
-          </View>
-        </TouchableOpacity>
-      </Modal>
     </>
   );
 };

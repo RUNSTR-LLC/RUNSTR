@@ -1,9 +1,10 @@
 /**
  * WorkoutSummaryModal - Post-run summary
  * Shows the run's stats and splits, and publishes it to Nostr as a kind 1301
- * note when auto-publish is on (Settings → Sharing). The publish status row
+ * note when auto-publish is on (Settings → Nostr). The publish status row
  * always says where the run is: published, publishing, failed (retry), or
- * saved on this device only.
+ * saved on this device only. The first time a run publishes, a one-line note
+ * says that published runs are public.
  */
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
@@ -57,6 +58,8 @@ interface WorkoutSummaryProps {
  */
 type PublishState = 'checking' | 'publishing' | 'published' | 'failed' | 'off' | 'local' | 'unsaved';
 
+const PUBLIC_NOTICE_KEY = '@runstr:public_run_notice_seen';
+
 export const WorkoutSummaryModal: React.FC<WorkoutSummaryProps> = ({
   visible,
   onClose,
@@ -65,6 +68,7 @@ export const WorkoutSummaryModal: React.FC<WorkoutSummaryProps> = ({
   const { isMetric, distanceLabel } = useUnitPreference();
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [publishState, setPublishState] = useState<PublishState>('checking');
+  const [showPublicNotice, setShowPublicNotice] = useState(false);
   // Guards against a second publish while one is in flight (effects can re-run)
   const publishingRef = useRef(false);
 
@@ -162,6 +166,24 @@ export const WorkoutSummaryModal: React.FC<WorkoutSummaryProps> = ({
     };
   }, [visible, workout.localWorkoutId, workout.distance, publish]);
 
+  // First publish ever: say once that published runs are public
+  useEffect(() => {
+    if (publishState !== 'published') return;
+    let cancelled = false;
+    (async () => {
+      try {
+        if (await AsyncStorage.getItem(PUBLIC_NOTICE_KEY)) return;
+        await AsyncStorage.setItem(PUBLIC_NOTICE_KEY, 'true');
+        if (!cancelled) setShowPublicNotice(true);
+      } catch {
+        // Not worth surfacing; the note is informational
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [publishState]);
+
   // Read the summary aloud once the slide-in animation finishes
   useEffect(() => {
     if (!visible) return;
@@ -190,9 +212,17 @@ export const WorkoutSummaryModal: React.FC<WorkoutSummaryProps> = ({
         );
       case 'published':
         return (
-          <View style={styles.statusRow}>
-            <Ionicons name="checkmark-circle" size={18} color={theme.colors.accent} />
-            <Text style={styles.statusTextStrong}>Published to Nostr</Text>
+          <View style={styles.statusBlock}>
+            <View style={styles.statusRow}>
+              <Ionicons name="checkmark-circle" size={18} color={theme.colors.accent} />
+              <Text style={styles.statusTextStrong}>Published to Nostr</Text>
+            </View>
+            {showPublicNotice && (
+              <Text style={styles.noticeText}>
+                Published runs are public, and other Nostr apps can show them.
+                You can turn this off in Settings &gt; Nostr.
+              </Text>
+            )}
           </View>
         );
       case 'failed':
@@ -396,6 +426,13 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: theme.colors.textMuted,
     textAlign: 'center',
+  },
+  noticeText: {
+    fontSize: 13,
+    lineHeight: 18,
+    color: theme.colors.textMuted,
+    textAlign: 'center',
+    paddingHorizontal: 16,
   },
   statusTextStrong: {
     fontSize: 14,

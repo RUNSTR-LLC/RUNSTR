@@ -513,7 +513,7 @@ const styles = StyleSheet.create({
     textAlignVertical: 'top',
   },
   error: {
-    color: theme.colors.error || '#FF6B00',
+    color: theme.colors.error,
     fontSize: 12,
     marginTop: 4,
   },

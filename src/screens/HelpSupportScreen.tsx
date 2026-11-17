@@ -1,6 +1,6 @@
 /**
  * HelpSupportScreen - FAQ and help documentation
- * Provides in-app help without external redirects
+ * Short FAQ for the four basics: sign in, track, history, agent sharing
  */
 
 import React, { useState } from 'react';
@@ -66,87 +66,60 @@ export const HelpSupportScreen: React.FC<{ navigation: any }> = ({
   const helpSections = [
     {
       id: 'getting-started',
-      title: 'Getting Started',
-      content: `Welcome to RUNSTR! Here's how to get started:
+      title: 'Getting started',
+      content: `Tap Start and RUNSTR creates a Nostr key for you on this phone. There is no email or password.
 
-• Nostr Login: Use your nsec (private key) to sign in. Your nsec starts with "nsec1" and should be kept private.
-• Profile Import: Your profile and workout history automatically import from Nostr events.
-• Understanding Keys: Your npub (public key) is like your username - safe to share. Your nsec is your password - never share it!
-• First Steps: Join a team from the Teams tab to start competing and earning Bitcoin.`,
+Your key is the account. Back it up in Settings > Nostr Keys > Back up nsec. Without it you cannot sign in on a new phone.
+
+Already have a Nostr account? Choose Advanced on the login screen and sign in with your nsec, or with Amber on Android.`,
     },
     {
-      id: 'teams',
-      title: 'Teams & Membership',
-      content: `Teams are the heart of RUNSTR competitions:
+      id: 'tracking',
+      title: 'Tracking a run',
+      content: `Press and hold Start Run. RUNSTR tracks distance, pace, and splits with GPS.
 
-• Joining Teams: Browse available teams in the Teams tab. Tap a team to view details, then "Join Team" to request membership.
-• Two-Tier System: You'll get instant local access while your join request is sent to the captain for approval.
-• Captain Access: Team captains see a "👑 Dashboard" button for managing their team.
-• Creating Teams: Tap the "+" button in Teams tab to create your own team and become a captain.
-• Membership: View your current team in Profile > Account tab.`,
+Pause and resume at any time. Tap the stop button to finish and save the run.
+
+Voice announcements and distance units are in Settings > Fitness Tracking.`,
     },
     {
-      id: 'workouts',
-      title: 'Workouts & Competitions',
-      content: `Track and share your fitness journey:
+      id: 'publishing',
+      title: 'Where my runs go',
+      content: `Every run is saved on this phone first.
 
-• HealthKit Import: iOS users can automatically sync Apple Health workouts.
-• Posting Workouts: Two options:
-  - "Compete" enters your workout into active competitions and leaderboards
-  - "Post" creates beautiful social cards for sharing on various platforms
-• Entering Competitions: Join a team event or league, then post qualifying workouts during the competition period.
-• Leaderboards: View real-time rankings based on the competition's scoring method (distance, duration, consistency, etc.)
-• Workout History: Profile > Workouts tab shows your unified timeline.`,
+When a run finishes, RUNSTR publishes it to Nostr as a workout note (kind 1301). Published runs are public, and other Nostr apps such as Amethyst, POWR, and Chachi can show them.
+
+To keep new runs on this phone only, turn off Settings > Nostr > Publish runs to Nostr. You can still publish any run later from History.`,
     },
     {
-      id: 'rewards',
-      title: 'Rewards',
-      content: `Earn rewards for GPS workouts:
+      id: 'backup',
+      title: 'Backup and a new phone',
+      content: `RUNSTR keeps an encrypted backup of your runs on Nostr. Only your key can read it. It updates a few minutes after each run.
 
-• How much: Rewards scale with distance — 500 for a 5K, 1,000 for a 10K, 2,100 for a half marathon, 4,200 for a marathon.
-• Minimum: A workout must reach 5K (about 3.1 miles) to earn. Shorter workouts still count toward your history and competitions.
-• How often: One reward per day, for your first qualifying GPS workout (run, walk, cycle, or hike).
-• Steps: Step activity counts toward competitions but does not earn rewards.
-• Where it goes: Rewards are sent to your lightning address. It defaults to the address on your profile, or you can set one in Settings.
-• When: Rewards are sent daily, around 10pm EST.`,
+On a new phone, sign in with the same nsec and your runs restore automatically. Amber users can restore from Settings > Data & Backup > Import Data.`,
     },
     {
-      id: 'captain',
-      title: 'Captain Features',
-      content: `Lead your team to victory:
+      id: 'health',
+      title: 'Apple Health and Health Connect',
+      content: `Turn on Settings > Fitness Tracking > Sync Workouts to import runs from Apple Health (iOS) or Health Connect (Android).
 
-• Dashboard Access: Captain Dashboard button appears for team creators.
-• Competition Wizards: Create Events (single day) or Leagues (multi-day) with:
-  - 7 activity types (Running, Walking, Cycling, Strength, Meditation, Yoga, Diet)
-  - Dynamic scoring options based on activity
-  - Entry fees and prize pool configuration
-• Member Management: Approve join requests, remove members, view team stats.
-• Prize Distribution: Automatic Bitcoin rewards to competition winners.
-• Team Wallet: Manage team funds for prizes and incentives.`,
+Runs import when you open RUNSTR.`,
     },
     {
-      id: 'notifications',
-      title: 'Notifications',
-      content: `Stay updated with your team:
+      id: 'agent',
+      title: 'Sharing runs with an AI agent',
+      content: `Settings > Nostr Keys > Share runs with your AI agent copies a prompt with your npub, your public Nostr ID.
 
-• Team Notifications: Get alerts for new competitions, results, and team updates.
-• Competition Alerts: "Starting Soon" reminders and result announcements.
-• Preferences: Profile > Notifications tab to customize what you receive.
-• Push Notifications: Enable in device settings for real-time updates.
-• Nostr Events: Notifications are powered by Nostr events (kinds 1101-1103).`,
+Paste it into your agent. It reads the runs you have published, using the runstr-fitness skill. Your nsec is never part of this.`,
     },
     {
       id: 'troubleshooting',
       title: 'Troubleshooting',
-      content: `Common issues and solutions:
+      content: `A run did not publish: open History and tap Publish to Nostr on that run.
 
-• Login Issues: Ensure your nsec starts with "nsec1" and has no spaces.
-• Team Not Loading: Pull down to refresh in the Teams tab.
-• Workout Not Syncing: Check Profile > Workouts and tap sync button.
-• Can't Join Team: Ensure you're not already in another team.
-• Missing Captain Button: Sign out and back in to refresh captain status.
-• Payment Issues: Check your NutZap balance and network connection.
-• App Crashes: Force quit and reopen. If persistent, reinstall the app.`,
+Cannot sign in: check that your key starts with "nsec1" and has no spaces.
+
+Runs missing after reinstalling: sign in with the same nsec. The restore runs once, in the background, right after you sign in.`,
     },
   ];
 
@@ -165,7 +138,7 @@ export const HelpSupportScreen: React.FC<{ navigation: any }> = ({
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         <Text style={styles.introText}>
-          Find answers to common questions and learn how to use RUNSTR
+          How RUNSTR works
         </Text>
 
         {helpSections.map((section) => (
@@ -178,18 +151,9 @@ export const HelpSupportScreen: React.FC<{ navigation: any }> = ({
           />
         ))}
 
-        <Card style={styles.contactCard}>
-          <Text style={styles.contactTitle}>Still need help?</Text>
-          <Text style={styles.contactText}>
-            Our support team is here to assist you
-          </Text>
-          <TouchableOpacity
-            style={styles.contactButton}
-            onPress={() => navigation.navigate('ContactSupport')}
-          >
-            <Text style={styles.contactButtonText}>Contact Support</Text>
-          </TouchableOpacity>
-        </Card>
+        <Text style={styles.footerText}>
+          Found a bug? Report it at github.com/RUNSTR-LLC/RUNSTR
+        </Text>
 
         <View style={styles.bottomPadding} />
       </ScrollView>
@@ -262,33 +226,11 @@ const styles = StyleSheet.create({
     color: theme.colors.textSecondary,
     lineHeight: 20,
   },
-  contactCard: {
+  footerText: {
+    fontSize: 13,
+    color: theme.colors.textMuted,
     marginTop: 20,
-    padding: 20,
-    alignItems: 'center',
-  },
-  contactTitle: {
-    fontSize: 18,
-    fontWeight: theme.typography.weights.bold,
-    color: theme.colors.text,
-    marginBottom: 8,
-  },
-  contactText: {
-    fontSize: 14,
-    color: theme.colors.textSecondary,
-    marginBottom: 16,
     textAlign: 'center',
-  },
-  contactButton: {
-    backgroundColor: theme.colors.primary,
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 8,
-  },
-  contactButtonText: {
-    color: theme.colors.background,
-    fontWeight: theme.typography.weights.semiBold,
-    fontSize: 14,
   },
   bottomPadding: {
     height: 40,

@@ -7,7 +7,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { WorkoutType } from '../../types/workout';
 import type { Split } from '../activity/SplitTrackingService';
-import { FEATURES } from '../../config/features';
 import Toast from 'react-native-toast-message';
 import type { VerificationReceipt } from '../../types/verification';
 import { isDuplicateWorkout, type DedupCandidate } from '../../utils/workoutDedup';

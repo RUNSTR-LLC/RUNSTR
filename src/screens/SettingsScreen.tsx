@@ -1,8 +1,6 @@
 /**
- * SettingsScreen - Consolidated settings for Account, Teams, and Notifications
- * Accessed from Profile screen settings button
- *
- * Rewards are handled server-side via trigger_auto_reward() + push notifications.
+ * SettingsScreen - tracking, Nostr publishing, backup, keys, and support.
+ * Opened from the Home top bar.
  */
 
 import React from 'react';
@@ -11,36 +9,27 @@ import { OstrichRefreshScrollView } from '../components/ui/OstrichRefreshScrollV
 import { theme } from '../styles/theme';
 import { CustomAlert } from '../components/ui/CustomAlert';
 import { Ionicons } from '@expo/vector-icons';
-import { AntiCheatRequestModal } from '../components/settings/AntiCheatRequestModal';
 import { ExportDataModal } from '../components/backup/ExportDataModal';
 import { ImportDataModal } from '../components/backup/ImportDataModal';
-import { WalletConfigModal } from '../components/wallet/WalletConfigModal';
-import { NWCQRConfirmationModal } from '../components/wallet/NWCQRConfirmationModal';
-import { QRScannerModal } from '../components/qr/QRScannerModal';
 import { settingsStyles as styles } from './settingsStyles';
 import { useSettingsState } from './useSettingsState';
-import { FEATURES } from '../config/features';
 
 // Section components
-import { LanguageSection } from '../components/settings/LanguageSection';
 import { FitnessTrackingSection } from '../components/settings/FitnessTrackingSection';
 import { NostrPostingSection } from '../components/settings/NostrPostingSection';
 import { DataBackupSection } from '../components/settings/DataBackupSection';
 import { PasswordSection } from '../components/settings/PasswordSection';
-import { WalletSection } from '../components/settings/WalletSection';
 import { SupportLegalSection } from '../components/settings/SupportLegalSection';
 import { AccountActionsSection } from '../components/settings/AccountActionsSection';
 
 interface SettingsScreenProps {
   onHelp?: () => void;
-  onContactSupport?: () => void;
   onPrivacyPolicy?: () => void;
   onSignOut?: () => void | Promise<void>;
 }
 
 export const SettingsScreen: React.FC<SettingsScreenProps> = ({
   onHelp,
-  onContactSupport,
   onPrivacyPolicy,
   onSignOut,
 }) => {
@@ -78,12 +67,6 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
             onTTSSettingChange={state.handleTTSSettingChange}
             isMetric={state.isMetric}
             onSetUnitSystem={state.setUnitSystem}
-            defaultActivity={state.defaultActivity}
-            showDefaultActivityPicker={state.showDefaultActivityPicker}
-            onSetShowDefaultActivityPicker={state.setShowDefaultActivityPicker}
-            onDefaultActivityChange={state.handleDefaultActivityChange}
-            privateModeEnabled={state.privateModeEnabled}
-            onPrivateModeToggle={state.handlePrivateModeToggle}
             healthKitSyncEnabled={state.healthKitSyncEnabled}
             healthKitAuthorized={state.healthKitAuthorized}
             healthKitLastSync={state.healthKitLastSync}
@@ -105,31 +88,17 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
             onShowImportModal={() => state.setShowImportModal(true)}
           />
 
-          {FEATURES.walletSettings && (
-            <WalletSection
-              hasNWCWallet={state.hasNWCWallet}
-              onDisconnectWallet={state.handleDisconnectWallet}
-              onShowWalletConfigModal={() => state.setShowWalletConfigModal(true)}
-              onShowQRScannerModal={() => state.setShowQRScannerModal(true)}
-            />
-          )}
-
           <PasswordSection
             userNsec={state.userNsec}
             onBackupPassword={state.handleBackupPassword}
+            hasNpub={!!state.userNpub}
             onCopyNpub={state.handleCopyNpub}
-          />
-
-          <LanguageSection
-            currentLanguage={state.currentLanguage}
-            onLanguageChange={state.handleLanguageChange}
+            onCopyAgentPrompt={state.handleCopyAgentPrompt}
           />
 
           <SupportLegalSection
             onHelp={onHelp}
-            onContactSupport={onContactSupport}
             onPrivacyPolicy={onPrivacyPolicy}
-            onShowAntiCheatModal={() => state.setShowAntiCheatModal(true)}
           />
 
           <AccountActionsSection
@@ -148,10 +117,6 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
         buttons={state.alert.buttons}
         onClose={state.hideAlert}
       />
-      <AntiCheatRequestModal
-        visible={state.showAntiCheatModal}
-        onClose={() => state.setShowAntiCheatModal(false)}
-      />
       <ExportDataModal
         visible={state.showExportModal}
         onClose={() => state.setShowExportModal(false)}
@@ -159,23 +124,6 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
       <ImportDataModal
         visible={state.showImportModal}
         onClose={() => state.setShowImportModal(false)}
-      />
-      <WalletConfigModal
-        visible={state.showWalletConfigModal}
-        onClose={() => state.setShowWalletConfigModal(false)}
-        onSuccess={state.handleNWCConnectSuccess}
-        allowSkip={false}
-      />
-      <QRScannerModal
-        visible={state.showQRScannerModal}
-        onClose={() => state.setShowQRScannerModal(false)}
-        onScanned={state.handleNWCQRScanned}
-      />
-      <NWCQRConfirmationModal
-        visible={state.showNWCQRConfirmModal}
-        onClose={() => state.setShowNWCQRConfirmModal(false)}
-        connectionString={state.scannedNWCString}
-        onSuccess={state.handleNWCConnectSuccess}
       />
     </SafeAreaView>
   );

@@ -1,31 +1,12 @@
 import { FEATURES } from '../features';
 
-const PHASE_1_FLAGS = [
-  'social',
-  'leaderboard',
-  'teams',
-  'level',
-  'earnings',
-  'activitySelector',
-  'stepTracking',
-  'cloudBackupButton',
-  'walletSettings',
-  'privateMode',
-  'shareSheet',
-  'journalHabits',
-  'nonRunningHistory',
-] as const;
-
-describe('Phase 1 simplification flags', () => {
-  it('defines every Phase 1 flag', () => {
-    for (const flag of PHASE_1_FLAGS) {
-      expect(FEATURES).toHaveProperty(flag);
-    }
+describe('feature flags', () => {
+  it('keeps the app running-only', () => {
+    expect(FEATURES.stepTracking).toBe(false);
+    expect(FEATURES.nonRunningHistory).toBe(false);
   });
 
-  it('hides every Phase 1 surface', () => {
-    for (const flag of PHASE_1_FLAGS) {
-      expect(FEATURES[flag]).toBe(false);
-    }
+  it('carries no flags for deleted features', () => {
+    expect(Object.keys(FEATURES).sort()).toEqual(['nonRunningHistory', 'stepTracking']);
   });
 });
